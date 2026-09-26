@@ -67,6 +67,13 @@ models/
 .appfactory/locks/
 .appfactory/logs/
 .appfactory/runtime/
+.appfactory/state/
+.appfactory/jobs/
+.appfactory/cache/
+.appfactory/STOP
+
+# ===== Projetos gerados (cada um é um repositório Git próprio) =====
+workspaces/
 
 # ===== SO / IDE =====
 .DS_Store

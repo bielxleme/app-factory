@@ -68,3 +68,43 @@ git push
 git status
 git log --oneline -2
 ```
+
+## 2026-09-26 — Fase 1 (Arquitetura)
+
+### Leitura e verificação
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `git status --short --branch` ; `git log --oneline -5` | limpo; `afc1dcc` sobre `5aa9709` |
+| VM | `find . -path ./.git -prune -o -type f -print \| sort` | 15 arquivos |
+| VM | `cat AGENTS.md PROJECT_STATE.md HANDOFF.md TASK_QUEUE.md DECISIONS.md CHANGELOG.md KNOWN_ISSUES.md TEST_STATUS.md RESOURCE_POLICY.md .appfactory/checkpoints/CP-0001-fase0.json .appfactory/job.json COMMAND_LOG.md` | lidos |
+| VM | `git show --stat --format= afc1dcc` | 11 arquivos |
+| Nuvem | `git ls-remote https://github.com/bielxleme/app-factory` | `main` = `afc1dcc42f4f…` |
+| VM | `for t in python3 node npm git docker ollama nvidia-smi uv pip3; do …; done` | ver V28 |
+
+### Diagnóstico de hardware
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `mkdir -p tools/diagnostics && cat > tools/diagnostics/measure-hardware.ps1 <<'EOF' … EOF` | script criado (130 linhas, só ASCII) |
+| VM | `LC_ALL=C grep -nP '[^\x00-\x7F]' tools/diagnostics/measure-hardware.ps1` | nenhum caractere fora do ASCII |
+| Nuvem | `curl -sSL -o pwsh.tgz …/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz` + `tar xzf` | PowerShell 7.4.6 temporário (fora do projeto) |
+| Nuvem | `pwsh -Command '[System.Management.Automation.Language.Parser]::ParseFile(...)'` | PARSE OK |
+| PS (usuário) | `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\diagnostics\measure-hardware.ps1` | OK, snapshot `snapshot-20260926-161709.json` |
+| VM | `python3 - <arquivo>` (leitura do snapshot com `utf-8-sig`) | valores em `RESOURCE_POLICY.md` |
+
+### Documentação e estado
+| Amb. | Comando |
+| --- | --- |
+| VM | `mkdir -p docs/architecture` + `cat > docs/architecture/<doc>.md <<'EOF' … EOF` (15 documentos) |
+| VM | `sed -i` (alinhamento de uma caixa do diagrama 1) |
+| VM | `python3 - <<'PY' … PY` (edições em `.gitignore`, `DECISIONS.md`, `KNOWN_ISSUES.md`, `TEST_STATUS.md`, `CHANGELOG.md`, `AGENTS.md`) |
+| VM | `cat > RESOURCE_POLICY.md / PROJECT_STATE.md / TASK_QUEUE.md / HANDOFF.md / .appfactory/job.json / .appfactory/checkpoints/CP-0002-fase1.json <<'EOF' … EOF` |
+| VM | `git check-ignore -v …` (confirma o que é e o que não é ignorado) |
+| VM | `python3 -m json.tool .appfactory/job.json` ; `python3 -m json.tool .appfactory/checkpoints/CP-0002-fase1.json` |
+| VM | script de verificação da documentação (V29–V34) |
+
+### Commit da Fase 1 (usuário, PowerShell) — PENDENTE DE APROVAÇÃO
+```powershell
+git add .
+git commit -m "docs: define App Factory architecture (Phase 1)"
+git push
+```

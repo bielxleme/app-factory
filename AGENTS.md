@@ -17,6 +17,7 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 5. `KNOWN_ISSUES.md` e `TEST_STATUS.md`
 6. `DECISIONS.md` e `RESOURCE_POLICY.md` antes de decisões técnicas
 7. `.appfactory/job.json` e o checkpoint mais recente em `.appfactory/checkpoints/`
+8. `docs/architecture/README.md` — especificação **normativa** da arquitetura (antes de implementar qualquer coisa)
 
 ## 3. Regras de trabalho
 
@@ -29,7 +30,9 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 7. Não altere arquivos fora do projeto sem necessidade e sem registrar.
 8. Registre comandos relevantes em `COMMAND_LOG.md`.
 9. Se algo falhar, registre em `KNOWN_ISSUES.md` e informe — não esconda erros.
-10. Respeite `RESOURCE_POLICY.md` (RAM 24 GB, VRAM 6 GB).
+10. Respeite `RESOURCE_POLICY.md` (medido: RAM 23,7 GB com ~5 GB livres no uso normal; VRAM 6141 MiB; C: com pouco espaço — grave só em D:).
+11. Não mude a arquitetura sem registrar a revisão em `DECISIONS.md` e atualizar `docs/architecture/`.
+12. Nunca gaste dinheiro (provedores pagos) sem aprovação explícita do usuário.
 
 ## 4. Atualização dos arquivos de estado (ao fim de cada sessão/tarefa)
 

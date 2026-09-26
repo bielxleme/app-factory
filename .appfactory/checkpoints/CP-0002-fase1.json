@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "CP-0002",
+  "slug": "fase1",
+  "title": "Fase 1 — Arquitetura especificada",
+  "created_at": "2026-09-26T16:35:00-03:00",
+  "created_by": "Claude (Cowork)",
+  "phase": 1,
+  "phase_name": "Arquitetura",
+  "state": "architecture_specified_pending_commit",
+  "git": {
+    "branch": "main",
+    "parent_commit": "afc1dcc42f4f7fc772dd22c2c9f043c6106731e5",
+    "validated_commit": null,
+    "expected_commit_message": "docs: define App Factory architecture (Phase 1)",
+    "remote": "https://github.com/bielxleme/app-factory.git",
+    "note": "validated_commit será preenchido no commit seguinte, depois que o usuário aprovar e fizer o commit (D-0011)."
+  },
+  "hardware_baseline": {
+    "measured_at": "2026-09-26T16:17:23-03:00",
+    "cpu": "i5-13420H, 8 núcleos / 12 threads, uso médio 16,8%",
+    "ram_gb": {"total_visible": 23.71, "available": 5.2, "used_pct": 78.1},
+    "gpu": "RTX 4050 Laptop, driver 617.14",
+    "vram_mib": {"total": 6141, "used": 105, "free": 5816},
+    "disk_free_gb": {"C": 32.9, "D": 177.8},
+    "power": "na tomada, bateria 79%",
+    "ollama": "0.34.4, nenhum modelo carregado"
+  },
+  "files_created": [
+    "docs/architecture/README.md",
+    "docs/architecture/00-visao-geral.md",
+    "docs/architecture/01-componentes.md",
+    "docs/architecture/02-fluxo-de-tarefa.md",
+    "docs/architecture/03-jobs.md",
+    "docs/architecture/04-execucao-paralela.md",
+    "docs/architecture/05-resource-manager.md",
+    "docs/architecture/06-provider-model-router.md",
+    "docs/architecture/07-persistencia.md",
+    "docs/architecture/08-seguranca.md",
+    "docs/architecture/09-autoevolucao.md",
+    "docs/architecture/10-diretorios.md",
+    "docs/architecture/11-tecnologias.md",
+    "docs/architecture/12-contratos.md",
+    "docs/architecture/13-diagramas.md",
+    "docs/architecture/14-plano-fase-2.md",
+    "tools/diagnostics/measure-hardware.ps1",
+    ".appfactory/checkpoints/CP-0002-fase1.json"
+  ],
+  "files_modified": [
+    ".gitignore", "AGENTS.md", "PROJECT_STATE.md", "TASK_QUEUE.md", "DECISIONS.md", "CHANGELOG.md",
+    "HANDOFF.md", "TEST_STATUS.md", "KNOWN_ISSUES.md", "RESOURCE_POLICY.md", "COMMAND_LOG.md", ".appfactory/job.json"
+  ],
+  "decisions": ["D-0012", "D-0013", "D-0014", "D-0015", "D-0016", "D-0017", "D-0018", "D-0019", "D-0020", "D-0021", "D-0022", "D-0023", "D-0024", "D-0025"],
+  "tests": ["V21", "V22", "V23", "V24", "V25", "V26", "V27", "V28", "V29", "V30", "V31", "V32", "V33", "V34"],
+  "pending": [
+    "Revisão e commit pelo usuário",
+    "Preencher validated_commit e ativar D-0012..D-0025",
+    "Decisões do usuário: KI-0008, KI-0009, variáveis OLLAMA_*, Docker sob demanda, provedores externos"
+  ],
+  "next_step": "FASE 2 — Implementação, fatia 2.1 Fundação (somente com nova instrução do usuário)"
+}

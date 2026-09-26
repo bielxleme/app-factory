@@ -24,3 +24,22 @@ Ambientes: **VM** = shell local do Cowork (Ubuntu 22.04.5, isolado) · **Nuvem**
 | V18 | Finais de linha | VM (`git ls-files --eol`) | OK — todos `i/lf w/lf` |
 | V19 | `.git` sem lock/temporários | VM (`ls .git`) | OK |
 | V20 | JSON válido (`job.json`, `CP-0001-fase0.json`) | VM (`python3 -m json.tool`) | OK |
+
+## Fase 1 — Arquitetura (2026-09-26)
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V21 | Leitura integral dos arquivos de estado + CP-0001 | VM | OK |
+| V22 | `git status` / `git log --oneline -5` | VM | OK — limpo; `afc1dcc` (CP-0001) sobre `5aa9709` |
+| V23 | Remoto sincronizado | Nuvem (`git ls-remote`) | OK — `main` = `afc1dcc42f4f…` |
+| V24 | Sintaxe do `measure-hardware.ps1` | Nuvem (PowerShell 7.4.6, `Parser::ParseFile`) | OK — "PARSE OK", só ASCII |
+| V25 | Execução do diagnóstico no Windows | PS (usuário) | OK — sem erros; snapshot `snapshot-20260926-161709.json` |
+| V26 | Leitura do snapshot (JSON) | VM (`python3`, utf-8-sig) | OK — valores em `RESOURCE_POLICY.md` §1 |
+| V27 | Ferramentas no Windows | PS (via snapshot) | Git 2.54.0 · Python 3.13.14 · Node 26.10.0 / npm 11.19.1 · uv 0.12.12 · Docker 29.8.0 · WSL2 (3 distros, paradas) · Ollama 0.34.4 · gh e pnpm **ausentes** |
+| V28 | Ferramentas na VM do Cowork | VM | Python 3.10.12 · Node 22.23.2 · git 2.34.1 · uv 0.12.13 · sem Docker/Ollama/nvidia-smi (esperado) |
+| V29 | 21 componentes × 14 campos | VM (script Python) | OK — 21 componentes, todos os nomes exigidos, nenhum campo faltando |
+| V30 | 8 diagramas | VM (script Python) | OK — 8 seções, blocos de código balanceados |
+| V31 | JSON válidos (job.json, CP-0001, CP-0002) | VM (`json.load`) | OK |
+| V32 | `.gitignore` cobre state/jobs/cache/STOP/workspaces e não ignora docs/tools/checkpoints | VM (`git check-ignore -v`) | OK |
+| V33 | Busca de segredos (ghp_, github_pat_, sk-, AKIA, chaves privadas) | VM (script Python) | OK — nenhum |
+| V34 | Links e referências internas entre documentos | VM (script Python) | OK — nenhum quebrado |
