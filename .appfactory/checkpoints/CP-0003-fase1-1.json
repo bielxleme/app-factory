@@ -7,11 +7,11 @@
   "created_by": "Claude (Cowork)",
   "phase": "1.1",
   "phase_name": "Revisão e correção documental da arquitetura",
-  "state": "phase_1_1_documented_pending_commit",
+  "state": "phase_1_1_validated",
   "git": {
     "branch": "main",
     "parent_commit": "40824577b9b8ad7eb041a3facf538f5d78f1e56c",
-    "validated_commit": null,
+    "validated_commit": "40d4d79",
     "expected_commit_message": "docs: revise architecture after Phase 1 review (Phase 1.1)",
     "remote": "https://github.com/bielxleme/app-factory.git",
     "note": "validated_commit será preenchido no commit seguinte, depois que o usuário aprovar e fizer o commit (D-0011)."
@@ -60,8 +60,6 @@
     "Nenhuma tarefa agendada criada"
   ],
   "pending": [
-    "Revisão e commit pelo usuário",
-    "Preencher validated_commit do CP-0003 no commit seguinte",
     "Validações futuras: KI-0014 (S1h), KI-0016 (ACL de D:), KI-0017 (GPU), KI-0009 (qwen3-coder)"
   ],
   "next_step": "FASE 2 — Implementação, fatia 2.1 Fundação (somente com nova instrução do usuário)"
