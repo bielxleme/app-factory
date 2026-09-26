@@ -1,0 +1,76 @@
+# ===== Segredos e credenciais (NUNCA versionar) =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+credentials*.json
+*token*.txt
+.netrc
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# ===== Node =====
+node_modules/
+.npm/
+.pnpm-store/
+npm-debug.log*
+yarn-error.log*
+
+# ===== Builds e artefatos =====
+dist/
+build/
+out/
+target/
+*.exe
+*.msi
+*.zip
+*.7z
+
+# ===== Caches e temporários =====
+.cache/
+tmp/
+temp/
+*.tmp
+*.swp
+*~
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Modelos e mídia gerada (grandes) =====
+models/
+*.gguf
+*.safetensors
+*.onnx
+*.ckpt
+
+# ===== Runtime da App Factory (checkpoints e job.json SÃO versionados) =====
+.appfactory/tmp/
+.appfactory/locks/
+.appfactory/logs/
+.appfactory/runtime/
+
+# ===== SO / IDE =====
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
