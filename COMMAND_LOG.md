@@ -35,13 +35,36 @@ Saídas reais resumidas em `TEST_STATUS.md`.
 | VM | `: > .appfactory/checkpoints/.gitkeep` |
 | VM | `python3 -m json.tool .appfactory/job.json` (validação) |
 
-### Commit e push (usuário, WSL) — PENDENTE
-```bash
-cd /mnt/d/Claude/app-factory
-git remote -v
+### Commit e push (usuário, PowerShell em `D:\Claude\app-factory`) — CONCLUÍDO
+Comandos informados pelo usuário:
+```powershell
+git commit -m "chore: initialize App Factory"   # → 5aa9709
+git push -u origin main                          # → sucesso
+git status                                       # → working tree clean
+git ls-remote origin                             # → main = 5aa9709ada8bb608e1192a9f022b38ff5ef32b31
+```
+
+### Validação pós-push e checkpoint (Claude)
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `ls -la` ; `ls -la .git` | 14 arquivos; sem `index.lock` |
+| VM | `git log --oneline --decorate -5` | `5aa9709 (HEAD -> main, origin/main)` |
+| VM | `git log -1 --format='%H%n%an%n%ad%n%s' --date=iso` | `5aa9709ada8b…`, Gabriel Ximenes, 2026-09-26 16:01:32 -0300 |
+| VM | `git status --short --branch` | `## main...origin/main` (limpo) |
+| VM | `git ls-files \| sort` ; `git ls-files --eol` | 14 arquivos; todos LF |
+| VM | `git rev-parse main origin/main` | ambos `5aa9709ada8b…` |
+| VM | `git config --local --list` | `branch.main.remote=origin` |
+| Nuvem | `git ls-remote https://github.com/bielxleme/app-factory` | `refs/heads/main` = `5aa9709ada8b…` |
+| VM | `cat > .appfactory/checkpoints/CP-0001-fase0.json <<'EOF' … EOF` | checkpoint criado |
+| VM | `cat > <arquivo> <<'EOF' … EOF` (job.json, PROJECT_STATE, TASK_QUEUE, HANDOFF) | reescritos |
+| VM | `python3 - <<'PY' … PY` (edições pontuais em DECISIONS, KNOWN_ISSUES, TEST_STATUS, RESOURCE_POLICY, COMMAND_LOG, CHANGELOG) | atualizados |
+| VM | `python3 -m json.tool <json>` | ambos válidos |
+
+### Commit do checkpoint (usuário, PowerShell) — PENDENTE
+```powershell
 git add .
-git commit -m "chore: initialize App Factory"
-git push -u origin main
+git commit -m "chore: add Phase 0 checkpoint CP-0001"
+git push
 git status
-git log --oneline -1
+git log --oneline -2
 ```

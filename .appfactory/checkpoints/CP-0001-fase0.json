@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "CP-0001",
+  "slug": "fase0",
+  "title": "Fase 0 — Preparação concluída (base do projeto)",
+  "created_at": "2026-09-26T16:10:00-03:00",
+  "created_by": "Claude (Cowork)",
+  "phase": 0,
+  "phase_name": "Preparação",
+  "state": "phase_0_validated",
+  "git": {
+    "branch": "main",
+    "base_commit": "5aa9709ada8bb608e1192a9f022b38ff5ef32b31",
+    "base_commit_short": "5aa9709",
+    "base_commit_message": "chore: initialize App Factory",
+    "base_commit_author": "Gabriel Ximenes",
+    "base_commit_date": "2026-09-26T16:01:32-03:00",
+    "remote": "https://github.com/bielxleme/app-factory.git",
+    "remote_main_verified": "5aa9709ada8bb608e1192a9f022b38ff5ef32b31",
+    "note": "Este checkpoint descreve o commit base 5aa9709. O próprio arquivo do checkpoint é versionado no commit seguinte (chore: add Phase 0 checkpoint CP-0001)."
+  },
+  "files_in_base_commit": [
+    ".appfactory/checkpoints/.gitkeep",
+    ".appfactory/job.json",
+    ".gitattributes",
+    ".gitignore",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "COMMAND_LOG.md",
+    "DECISIONS.md",
+    "HANDOFF.md",
+    "KNOWN_ISSUES.md",
+    "PROJECT_STATE.md",
+    "RESOURCE_POLICY.md",
+    "TASK_QUEUE.md",
+    "TEST_STATUS.md"
+  ],
+  "files_added_by_checkpoint": [
+    ".appfactory/checkpoints/CP-0001-fase0.json"
+  ],
+  "tests": [
+    {"id": "V14", "check": "Primeiro commit", "result": "OK", "evidence": "git log: 5aa9709 (HEAD -> main, origin/main)"},
+    {"id": "V15", "check": "Push para origin/main", "result": "OK", "evidence": "Relato do usuário (PowerShell) + git ls-remote na nuvem: refs/heads/main = 5aa9709ada8b…"},
+    {"id": "V16", "check": "Sincronização local/remoto", "result": "OK", "evidence": "git rev-parse main origin/main idênticos; git status: ## main...origin/main sem alterações"},
+    {"id": "V17", "check": "Arquivos versionados", "result": "OK", "evidence": "git ls-files: 14 arquivos esperados"},
+    {"id": "V18", "check": "Finais de linha", "result": "OK", "evidence": "git ls-files --eol: todos i/lf w/lf"},
+    {"id": "V19", "check": "Sem lock/arquivos temporários em .git", "result": "OK", "evidence": "ls .git sem index.lock"}
+  ],
+  "pending": [
+    "Commit e push deste checkpoint e das atualizações de estado (usuário, PowerShell)",
+    "Verificação real de RAM/GPU/VRAM (KI-0004) — sugerida para a Fase 1"
+  ],
+  "next_step": "FASE 1 — ARQUITETURA (somente com nova instrução do usuário)"
+}

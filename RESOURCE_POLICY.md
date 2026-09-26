@@ -8,7 +8,7 @@
 | RAM | 24 GB DDR5 | Informado pelo usuário; **não verificado** |
 | GPU | NVIDIA RTX 4050 Laptop | Informado pelo usuário; **não verificado** |
 | VRAM | 6 GB | Informado pelo usuário; **não verificado** |
-| SO | Windows + WSL | Informado pelo usuário; Windows confirmado (`platform: win32`); WSL **não verificado** |
+| SO | Windows + WSL | Informado pelo usuário; Windows confirmado (`platform: win32`); WSL **não verificado** (ambiente WSL/OpenClaw é separado do projeto — D-0010) |
 | Modelos locais | Ollama | Informado pelo usuário; existe `~/.ollama` no perfil do Windows; versão **não verificada** |
 
 ## Políticas iniciais (provisórias — revisar na Fase 1)

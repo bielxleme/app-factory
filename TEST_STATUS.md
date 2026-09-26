@@ -1,6 +1,6 @@
 # TEST_STATUS.md — Testes e verificações
 
-Ambientes: **VM** = shell local do Cowork (Ubuntu 22.04.5, isolado) · **Nuvem** = ambiente de nuvem do Claude · **WSL** = WSL do usuário.
+Ambientes: **VM** = shell local do Cowork (Ubuntu 22.04.5, isolado) · **Nuvem** = ambiente de nuvem do Claude · **WSL** = WSL do usuário · **PS** = PowerShell do usuário (Git para Windows).
 
 | # | Verificação | Ambiente | Resultado |
 | --- | --- | --- | --- |
@@ -17,6 +17,10 @@ Ambientes: **VM** = shell local do Cowork (Ubuntu 22.04.5, isolado) · **Nuvem**
 | V11 | `git remote -v` | VM | OK — `origin https://github.com/bielxleme/app-factory.git` (fetch/push) |
 | V12 | `git status` inicial | VM | OK — "On branch main / No commits yet"; deixou `index.lock` (KI-0003, resolvido) |
 | V13 | Estrutura de arquivos + `git status --short --untracked-files=all` | VM | OK — 14 arquivos não rastreados, nenhum ignorado indevidamente; sem `index.lock` |
-| V14 | Primeiro commit | WSL | PENDENTE |
-| V15 | Push | WSL | PENDENTE |
-| V16 | Sincronização local/remoto | WSL + Nuvem | PENDENTE |
+| V14 | Primeiro commit | PS (usuário) + VM | OK — `5aa9709` `chore: initialize App Factory`, autor Gabriel Ximenes, 2026-09-26 16:01:32 -03:00 |
+| V15 | Push | PS (usuário) + Nuvem | OK — `git ls-remote` (nuvem): `refs/heads/main` = `5aa9709ada8bb608e1192a9f022b38ff5ef32b31` |
+| V16 | Sincronização local/remoto | VM | OK — `git rev-parse main origin/main` iguais; `git status --short --branch` → `## main...origin/main`, sem alterações |
+| V17 | Arquivos versionados no commit base | VM (`git ls-files`) | OK — 14 arquivos esperados |
+| V18 | Finais de linha | VM (`git ls-files --eol`) | OK — todos `i/lf w/lf` |
+| V19 | `.git` sem lock/temporários | VM (`ls .git`) | OK |
+| V20 | JSON válido (`job.json`, `CP-0001-fase0.json`) | VM (`python3 -m json.tool`) | OK |

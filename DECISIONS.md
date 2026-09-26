@@ -20,7 +20,7 @@ Formato: ID · data · decisão · motivo · status.
 ## D-0004 · 2026-09-26 · Uso do WSL
 - **Decisão:** o ambiente de desenvolvimento principal é o WSL no Windows; commits e pushes com credenciais do usuário são feitos no WSL.
 - **Motivo:** ambiente escolhido pelo usuário; as credenciais do GitHub estão lá. O shell do Claude (Cowork) é uma VM Linux isolada, sem acesso ao WSL nem às credenciais (ver KI-0001).
-- **Status:** ativa.
+- **Status:** revisada por D-0010.
 
 ## D-0005 · 2026-09-26 · Arquivos de estado como memória operacional
 - **Decisão:** usar `AGENTS.md`, `PROJECT_STATE.md`, `TASK_QUEUE.md`, `DECISIONS.md`, `CHANGELOG.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_STATUS.md`, `RESOURCE_POLICY.md`, `COMMAND_LOG.md`, `.appfactory/job.json` e `.appfactory/checkpoints/`.
@@ -45,4 +45,14 @@ Formato: ID · data · decisão · motivo · status.
 ## D-0009 · 2026-09-26 · Commit e push feitos pelo usuário
 - **Decisão:** o primeiro commit e o push são executados pelo usuário no WSL, com a identidade Git dele.
 - **Motivo:** escolha do usuário; autoria correta e uso das credenciais já configuradas no WSL.
+- **Status:** ativa (executado via PowerShell, ver D-0010).
+
+## D-0010 · 2026-09-26 · Git para Windows (PowerShell) como ambiente Git oficial; WSL/OpenClaw separado
+- **Decisão:** commits e pushes são feitos pelo usuário com Git para Windows no PowerShell, em `D:\Claude\app-factory`. O ambiente WSL/OpenClaw continua separado e **não** deve ser usado para recriar ou duplicar o projeto.
+- **Motivo:** o primeiro commit (`5aa9709`) e o push foram feitos assim pelo usuário; manter uma única cópia do projeto.
+- **Status:** ativa. Revisa D-0004.
+
+## D-0011 · 2026-09-26 · Checkpoint referencia o commit anterior
+- **Decisão:** um checkpoint registra o commit que ele valida (`base_commit`); o arquivo do checkpoint é versionado no commit seguinte.
+- **Motivo:** um arquivo não pode conter o hash do commit que o contém.
 - **Status:** ativa.
