@@ -2,28 +2,26 @@
 
 Legenda: `[x]` concluída e verificada · `[~]` em andamento · `[ ]` pendente · `[!]` bloqueada
 
-## FASE 0 — Preparação — CONCLUÍDA (CP-0001, commits `5aa9709` e `afc1dcc`)
+## FASE 0 — Preparação — CONCLUÍDA (CP-0001; commits `5aa9709`, `afc1dcc`)
 
-- [x] Repositório, estrutura de estado, Git, primeiro commit, push, checkpoint CP-0001
+## FASE 1 — Arquitetura — CONCLUÍDA (CP-0002 validado em `4082457`)
 
-## FASE 1 — Arquitetura — CONCLUÍDA, aguardando commit
+## FASE 1.1 — Revisão e correção documental — CONCLUÍDA, aguardando commit
 
-- [x] Ler estado e verificar o Git
-- [x] Medir hardware real e ferramentas (`tools/diagnostics/measure-hardware.ps1`)
-- [x] Especificar os 21 componentes e os itens A–K em `docs/architecture/`
-- [x] Registrar decisões D-0012 a D-0025
-- [x] Atualizar arquivos de estado e criar CP-0002 (pendente de commit)
-- [ ] **Usuário:** revisar e aprovar o commit da Fase 1 (`docs: define App Factory architecture (Phase 1)`)
-- [ ] Após o commit: preencher `validated_commit` no CP-0002 (commit seguinte, D-0011)
+- [x] Corrigir N1–N8 na documentação (D-0026 a D-0039)
+- [x] Validar CP-0002 (`4082457`) e confirmar D-0012 a D-0025
+- [x] Criar CP-0003 (pendente de commit)
+- [ ] **Usuário:** revisar e fazer o commit `docs: revise architecture after Phase 1 review (Phase 1.1)`
+- [ ] Após o commit: preencher `validated_commit` no CP-0003 (commit seguinte, D-0011)
 
-## Decisões pendentes do usuário (antes da Fase 2)
+## Decisões e ações do usuário previstas para a Fase 2
 
-- [ ] KI-0008 — mover os modelos do Ollama para D: (`OLLAMA_MODELS`)?
-- [ ] KI-0009 — confirmar se `qwen3-coder:latest` é local
-- [ ] Definir `OLLAMA_MAX_LOADED_MODELS=1` / `OLLAMA_NUM_PARALLEL=1`?
-- [ ] Docker Desktop pode ser iniciado sob demanda pela fábrica?
+- [ ] Fatia 2.5 — verificar os modelos locais com `ollama show` + `/api/ps` (inclui `qwen3-coder:latest`, KI-0009)
+- [ ] Fatia 2.6 — criar o usuário local `afrunner` e aplicar as ACLs (KI-0014, KI-0016)
+- [ ] Fatia 2.9+ — `af daemon install-autostart` (tarefa de logon)
+- [ ] Futuro — migrar os modelos do Ollama para D: (D-0034, KI-0008)
 - [ ] Algum provedor externo gratuito pode ser habilitado? (padrão: nenhum)
 
 ## PRÓXIMA FASE
 
-- [ ] **FASE 2 — Implementação**, fatia 2.1 Fundação (ver `docs/architecture/14-plano-fase-2.md`) — só com nova instrução
+- [ ] **FASE 2 — Implementação**, fatia 2.1 Fundação (`docs/architecture/14-plano-fase-2.md`) — só com nova instrução

@@ -37,10 +37,12 @@
 - **Descrição:** C: com 32,9 GB livres. Nenhuma `OLLAMA_MODELS` definida → modelos no perfil do usuário no C: (os tamanhos listados por `ollama list` somam ~22,7 GB; dois modelos têm o mesmo ID, então o uso real deve ser menor).
 - **Impacto:** baixar novos modelos pode esgotar o C:.
 - **Ação (decisão do usuário):** definir `OLLAMA_MODELS` em D: e mover os modelos. A fábrica não faz isso sozinha.
+- **Fase 1.1:** registrada como decisão futura (D-0034). Nada foi alterado.
 
 ## KI-0009 · Aberto · `qwen3-coder:latest` e `qwen3-coder:480b-cloud` com o mesmo ID
 - **Descrição:** `ollama list` mostra os dois com ID `57874a6e9034` e 5,2 GB. Não se sabe se o `latest` é um modelo local ou um alias do modelo de nuvem.
 - **Ação:** na Fase 2, rodar `ollama show qwen3-coder:latest` e medir com `/api/ps`. Até lá, os dois são tratados como **externos** (privacidade externa).
+- **Fase 1.1:** classe formal **CLOUD** até verificação real com o usuário (D-0033, fatia 2.5). Nenhuma suposição por nome ou tamanho.
 
 ## KI-0010 · Limitação · Temperatura da CPU indisponível
 - **Descrição:** `MSAcpi_ThermalZoneTemperature` volta vazio sem administrador.
@@ -57,3 +59,19 @@
 ## KI-0013 · Resolvido · Título vazio no CHANGELOG
 - **Descrição:** a edição da Fase 0 deixou um título "Commit inicial `5aa9709`" sem conteúdo.
 - **Solução:** corrigido na Fase 1.
+
+## KI-0014 · Aberto (a validar na Fase 2) · Logon secundário + Job Object no Windows 11 Home
+- **Descrição:** o S1h (D-0026) depende de lançar processos como `afrunner` via `CreateProcessWithLogonW`, suspensos, e atribuí-los a um Job Object aninhado com `KILL_ON_JOB_CLOSE`. A interação entre o serviço de logon secundário e Job Objects precisa ser provada nesta máquina.
+- **Ação:** prova de conceito na fatia 2.6 (`15-daemon.md` §10). Se inviável, registrar decisão de usar só S2 para código não confiável.
+
+## KI-0015 · Risco aceito · S1h não isola rede
+- **Descrição:** o Windows Home não oferece bloqueio de rede confiável por usuário. Código em S1h pode acessar a rede.
+- **Mitigação:** S1h não tem segredos, token nem acesso a áreas protegidas; tasks que exigem isolamento de rede vão obrigatoriamente para S2.
+
+## KI-0016 · Aberto (a validar no setup) · ACL padrão do disco D:
+- **Descrição:** em discos NTFS secundários, a ACL padrão costuma dar "Usuários autenticados: Modificar" na raiz. Sem ajuste, `afrunner` poderia escrever fora do worktree.
+- **Ação:** no setup da fatia 2.6 (feito pelo usuário, R3), aplicar Deny herdado para `afrunner` a partir de `D:\Claude\app-factory` (e de outras pastas que o usuário indicar) e verificar com teste real. Nada foi alterado na Fase 1.1.
+
+## KI-0017 · Aberto (a validar na fatia 2.3) · Heurísticas de uso da GPU por terceiros
+- **Descrição:** a contabilidade de VRAM por diferença, a janela de observação e as heurísticas de tela cheia/processos (05 §1.1) são estimativas.
+- **Ação:** executar a matriz de validação (ocioso, vídeo, jogo, Ollama usado por outra ferramenta, inferência + jogo) e calibrar `overhead_contexto`, `vram_base` e `margem_medicao`.

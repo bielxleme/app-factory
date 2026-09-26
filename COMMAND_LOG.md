@@ -102,9 +102,36 @@ git log --oneline -2
 | VM | `python3 -m json.tool .appfactory/job.json` ; `python3 -m json.tool .appfactory/checkpoints/CP-0002-fase1.json` |
 | VM | script de verificação da documentação (V29–V34) |
 
-### Commit da Fase 1 (usuário, PowerShell) — PENDENTE DE APROVAÇÃO
+### Commit da Fase 1 (usuário, PowerShell) — CONCLUÍDO: `4082457` (informado pelo usuário; confirmado com `git log` na VM e `git ls-remote` na nuvem)
 ```powershell
 git add .
 git commit -m "docs: define App Factory architecture (Phase 1)"
+git push
+```
+
+## 2026-09-26 — Revisão técnica da Fase 1 (somente leitura)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `git status --short --branch` ; `git log --oneline -4` ; `git show --stat 4082457` ; `git diff 4082457 \| wc -l` | limpo; working tree = `4082457` (0 linhas de diferença) |
+| Nuvem | `git ls-remote https://github.com/bielxleme/app-factory` | `main` = `40824577b9b8…` |
+| VM | `cat docs/architecture/*.md RESOURCE_POLICY.md AGENTS.md …` | leitura para a revisão (achados N1–N8) |
+
+## 2026-09-26 — Fase 1.1 (revisão e correção documental)
+
+| Amb. | Comando |
+| --- | --- |
+| VM | `git status --short --branch` ; `git log --oneline -1` ; `grep -n … docs/architecture/01-componentes.md` (localizar trechos) |
+| VM | `cat > docs/architecture/08-seguranca.md <<'EOF' … EOF` (reescrito) · `cat > docs/architecture/15-daemon.md` (novo) · `cat > docs/architecture/07-persistencia.md` (reescrito) · `cat > docs/architecture/14-plano-fase-2.md` (reescrito) |
+| VM | `python3 - <<'PY' … PY` (substituições verificadas por `assert` em 00, 01, 02, 03, 04, 05, 06, 09, 10, 11, 12, 13, README, AGENTS.md, RESOURCE_POLICY.md, DECISIONS.md, KNOWN_ISSUES.md, CHANGELOG.md, COMMAND_LOG.md, CP-0002) |
+| VM | `cat >> docs/architecture/13-diagramas.md` (diagramas 9 e 10) |
+| VM | `cat > .appfactory/checkpoints/CP-0003-fase1-1.json` · `cat > .appfactory/job.json` · `cat > PROJECT_STATE.md / TASK_QUEUE.md / HANDOFF.md` |
+| VM | `sed -i` (ajuste de horário nos JSON; `vram_available_for_factory_mib` no exemplo de `12-contratos.md`) |
+| VM | `python3 -m json.tool` nos JSON; script de validação (V35–V44) |
+
+### Commit da Fase 1.1 (usuário, PowerShell) — PENDENTE DE APROVAÇÃO
+```powershell
+git add .
+git commit -m "docs: revise architecture after Phase 1 review (Phase 1.1)"
 git push
 ```

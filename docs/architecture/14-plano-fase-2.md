@@ -1,17 +1,19 @@
 # 14 — Proposta de fatiamento da implementação (NÃO executar sem instrução)
 
-Ordem pensada para que cada fatia seja testável e segura antes da próxima. Cada fatia termina com testes, checkpoint e handoff.
+**Revisão 1.1 (2026-09-26):** fatias reordenadas para incorporar N1–N7 (segurança do código não confiável, infraestrutura protegida, ciclo de vida do daemon, GPU no WDDM, classificação de modelos, estado operacional, concorrência por projeto).
+
+Cada fatia termina com testes, checkpoint e registro nos arquivos de estado. Ações fora do repositório (criar usuário Windows, ACLs, tarefa agendada, mudanças no Ollama) são **R3** e feitas **pelo usuário**, com confirmação.
 
 | Fatia | Conteúdo | Critério de pronto |
 | --- | --- | --- |
-| 2.1 Fundação | `pyproject.toml` (uv, Python 3.13), estrutura `src/`, config loader, IDs, logging JSONL + redação, SQLite + migrações do esquema de `03-jobs.md` | `af --version`, testes unitários, log sem segredos |
-| 2.2 Guardrails primeiro | `tests/guardrails/` I1–I7 como esqueletos que falham até o componente existir; `protected-paths` | suíte roda e reporta |
-| 2.3 Resource Manager | sondas Windows/NVIDIA/Ollama, modos, admissão, CLI `af resources` | valores batem com `measure-hardware.ps1` |
-| 2.4 Job Manager | máquina de estados, leases, locks, recuperação, runner "eco" (agente falso) | testes de crash/retomada e de lock |
-| 2.5 Routers | adaptador Ollama, Model Router com catálogo, Provider Router com política de custo 0, medição real de VRAM por modelo | chamada local ok; troca por cota simulada vai para WAITING |
-| 2.6 Toolbox + Security | fs/shell/git com política, journal, Approval Gate, secrets via keyring, sandbox S1 | testes de violação negada |
-| 2.7 Checkpoint + Handoff | 3 níveis, rollback, geração dos arquivos de estado | restauração testada |
-| 2.8 Primeiros agentes | Master (T1), Planner, Coder, QA, Debug num projeto de exemplo | job "hello API" completo, local |
-| 2.9+ | Research, Browser, DB, UI/UX, Build, Security Agent, Media, Evolution | conforme novas fases |
+| 2.1 Fundação | `pyproject.toml` (uv, Python 3.13, sem `[tool.pytest]`), `pytest.ini`, estrutura `src/`, config loader, IDs, relógio de tempo ativo, logging JSONL + redação, SQLite (escritor único, `synchronous=FULL`, estado+evento na mesma transação) | `af --version`, testes unitários, log sem segredos |
+| 2.2 Guardrails primeiro | `tests/guardrails/` I1–I7 (com `pytest.ini` próprio, `--noconftest`), `protected-paths.yaml`, verificador de diff de caminhos protegidos | suíte roda pelo comando fixo; diff de teste tocando caminho protegido é rejeitado |
+| 2.3 Resource Manager | sondas Windows/NVIDIA/runtime local, contabilidade de VRAM do WDDM (05 §1.1), modos, admissão, CLI `af resources` | valores batem com `measure-hardware.ps1`; **matriz de validação da GPU** executada (KI-0017) |
+| 2.4 Daemon + Job Manager | instância única, `af daemon start/stop/status`, Job Object raiz, leases em tempo ativo com verificação de vida, carência pós-sono, STOP persistente, 1 job RUNNING por projeto, locks por projeto, `runtime/job.json`, runner "eco" | testes de crash/retomada, sono simulado, lock, STOP (apagar arquivo não libera) |
+| 2.5 Routers | adaptador Ollama, `local_allowlist`, **verificação real dos modelos com o usuário** (inclui `qwen3-coder:latest`, KI-0009), registro de posse, Provider Router *fail-closed* | nenhum modelo não verificado usado como local; só modelos próprios descarregados |
+| 2.6 Segurança de execução | tokens por papel, aprovações interativas, secrets via keyring; **prova de conceito S1h** (usuário `afrunner` criado pelo usuário, logon secundário + Job Object + ACL) e S2 | PoC aprovada (KI-0014/KI-0016) ou decisão registrada de usar só S2 |
+| 2.7 Checkpoint + Handoff | 3 níveis, rollback, handoff operacional (`runtime/handoff/`) e do projeto | restauração testada; estado versionado intocado pelo daemon |
+| 2.8 Primeiros agentes | Master (T1), Planner, Coder, QA, Debug num projeto de exemplo, executando código em S1h/S2 | job "hello API" completo, local |
+| 2.9+ | Research, Browser, DB, UI/UX, Build, Security Agent, Media, Evolution; `af daemon install-autostart` (com o usuário) | conforme novas fases |
 
-Pré-requisitos a decidir pelo usuário antes da 2.3/2.5: KI-0008 (mover modelos do Ollama para D:), KI-0009 (natureza do `qwen3-coder:latest`), variáveis `OLLAMA_*` recomendadas, se Docker Desktop pode ser iniciado sob demanda.
+Pré-requisitos do usuário, em momentos indicados: criação do usuário `afrunner` e ACLs (2.6) · tarefa de logon (2.9+) · verificação dos modelos (2.5) · eventual migração dos modelos do Ollama para D: (D-0034, decisão futura).

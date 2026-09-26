@@ -2,6 +2,8 @@
 
 Formatos em JSON (serão modelos Pydantic na Fase 2). Todo objeto tem `schema_version`. Campos marcados `?` são opcionais.
 
+**Revisão 1.1 (2026-09-26):** `writes` restrito, classe de sandbox na TaskSpec, contabilidade de VRAM no snapshot, papéis/tokens na API, STOP, posse de modelos e verificação de vida de runners.
+
 ## 1. Envelope de evento (Event Bus / tabela `events`)
 
 ```json
@@ -11,7 +13,7 @@ Formatos em JSON (serão modelos Pydantic na Fase 2). Todo objeto tem `schema_ve
   "payload": { } }
 ```
 
-Tipos de evento: `user.message` · `job.{created,state_changed,completed,failed,cancelled}` · `plan.{created,revised,approved}` · `task.{queued,started,heartbeat,step_completed,state_changed,scope_violation,completed,failed}` · `qa.{passed,failed}` · `build.{passed,failed}` · `security.{report,violation}` · `approval.{requested,decided,expired}` · `resource.{sample,mode_changed,admit,deny,preempt,probe_failed}` · `model.{loaded,unloaded,swapped}` · `provider.{call,failed,exhausted,switched,recovered}` · `checkpoint.{created,restored}` · `handoff.written` · `evolution.{proposed,tested,compared,decided}`.
+Tipos de evento: `system.{resumed,stop_set,stop_released}` · `user.message` · `job.{created,state_changed,completed,failed,cancelled}` · `plan.{created,revised,approved}` · `task.{queued,started,heartbeat,step_completed,state_changed,scope_violation,completed,failed}` · `qa.{passed,failed}` · `build.{passed,failed}` · `security.{report,violation}` · `approval.{requested,decided,expired}` · `resource.{sample,mode_changed,admit,deny,preempt,probe_failed}` · `model.{loaded,unloaded,swapped}` · `provider.{call,failed,exhausted,switched,recovered}` · `checkpoint.{created,restored}` · `handoff.written` · `evolution.{proposed,tested,compared,decided}`.
 
 ## 2. TaskSpec (Job Manager → agent-runner)
 
@@ -19,7 +21,8 @@ Tipos de evento: `user.message` · `job.{created,state_changed,completed,failed,
 { "schema_version": 1, "task_id": "...", "job_id": "...", "type": "code",
   "title": "Implementar endpoint /health", "objective": "...",
   "acceptance_criteria": ["GET /health retorna 200 {status: ok}", "teste unitário cobre o caso"],
-  "reads": ["src/**"], "writes": ["src/api/health.py", "tests/test_health.py"],
+  "reads": ["src/**"], "writes": ["src/api/health.py", "tests/test_health.py"],   // só arquivos explícitos ou "dir/**" (04 §3)
+  "project": "demo", "exec_sandbox": "S1h|S2", "network_isolation": "required|not_required",
   "depends_on": ["..."], "model_profile": "code.small", "risk_ceiling": "R1",
   "limits": { "max_steps": 30, "step_timeout_s": 600, "max_attempts": 3 },
   "worktree": "D:/Claude/app-factory/workspaces/_worktrees/demo/TASK-...-03",
@@ -89,7 +92,7 @@ class ResourceManager(Protocol):
     def admit(self, req: AdmissionRequest) -> Admission: ...        # GRANT | DENY(reason) | WAIT(retry_after)
     def acquire_gpu(self, model: str, est_vram_mib: int, priority: int) -> GpuLease | None: ...
 
-class Sandbox(Protocol):  # S1 subprocess | S2 docker
+class Sandbox(Protocol):  # S1h (usuário afrunner + Job Object) | S2 docker  — 08 §4
     async def run(self, cmd: list[str], cwd: Path, env: dict, timeout_s: int, limits: Limits) -> RunResult: ...
 
 class SecretStore(Protocol):
@@ -104,7 +107,10 @@ class MediaBackend(Protocol): ...
 
 ```json
 { "ts": "...", "mode": "FOREGROUND", "cpu_pct_60s": 16.8, "ram_available_gb": 5.2, "ram_total_gb": 23.71,
-  "gpu": {"util_pct": 0, "vram_total_mib": 6141, "vram_used_mib": 105, "temp_c": 46, "foreign_util_pct": 0},
+  "gpu": {"util_pct": 0, "vram_total_mib": 6141, "vram_used_mib": 105, "temp_c": 46,
+          "vram_factory_mib": 0, "vram_ollama_foreign_mib": 0, "vram_other_mib": 0, "vram_foreign_mib": 0,
+          "vram_available_for_factory_mib": 4756, "foreign_util_pct": null, "foreign_util_measured_at": "...",
+          "fullscreen_or_d3d": false, "contention_process": null},
   "user_idle_s": 0, "on_ac": true, "battery_pct": 79, "disk_free_gb": {"C": 32.9, "D": 177.8},
   "loaded_models": [], "active": {"agents": 0, "heavy": 0, "gpu_lease": null} }
 ```
@@ -137,14 +143,49 @@ Marcos da fábrica seguem o formato já usado em `CP-0001-fase0.json`.
 
 ## 11. API local do daemon (127.0.0.1, header `X-AF-Token`)
 
-| Método | Rota | Uso |
-| --- | --- | --- |
-| POST | `/jobs` | criar job (Master) |
-| GET | `/jobs`, `/jobs/{id}` | status |
-| POST | `/jobs/{id}/pause`, `/resume`, `/cancel`, `/priority` | controle |
-| GET | `/approvals?state=pending` · POST `/approvals/{id}` | aprovação |
-| POST | `/runner/heartbeat`, `/runner/step`, `/runner/result` | agent-runner |
-| POST | `/llm/generate` | chamada de modelo (runner → routers) |
-| POST | `/tools/{tool}` | chamada de ferramenta (runner → Toolbox + política) |
-| GET | `/resources` | snapshot atual |
-| POST | `/stop` | kill switch |
+Regras gerais: bind só em `127.0.0.1`, validação do cabeçalho `Host`, **sem CORS**, requisições com `Origin` de navegador rejeitadas, token obrigatório (08 §8).
+
+| Método | Rota | Uso | Papéis |
+| --- | --- | --- | --- |
+| GET | `/health` | vida do daemon | qualquer (sem dados) |
+| POST | `/jobs` | criar job (Master) | `user`, `ui` |
+| GET | `/jobs`, `/jobs/{id}` | status | `user`, `ui`; `runner` só o próprio job |
+| POST | `/jobs/{id}/pause`, `/resume`, `/cancel`, `/priority` | controle | `user`, `ui` |
+| GET | `/approvals?state=pending` | listar aprovações | `user`, `ui` |
+| POST | `/approvals/{id}` | decidir aprovação | **só `user` + código de confirmação interativo** |
+| POST | `/runner/heartbeat`, `/runner/step`, `/runner/result` | agent-runner | `runner` (escopo da task) |
+| POST | `/llm/generate` | chamada de modelo (runner → routers) | `runner` |
+| POST | `/tools/{tool}` | chamada de ferramenta (runner → Toolbox + política) | `runner` |
+| GET | `/resources` | snapshot atual | `user`, `ui`, `runner` |
+| POST | `/stop` | **acionar** kill switch | qualquer papel autenticado |
+| POST | `/stop/release` | liberar kill switch | **só `user` + código de confirmação interativo** |
+
+Processos em S1h/S2 **não têm token** e não acessam a API.
+
+## 12. Estado de STOP
+
+```json
+{ "active": true, "reason": "user|file_trigger|guardrail|critical", "set_at": "...", "set_by": "user|runner:<attempt>|system",
+  "released_at?": "...", "released_by?": "user" }
+```
+Persistido na tabela `factory_stop` antes de qualquer outra ação; espelhado em memória. Liberação só por `/stop/release` (08 §9).
+
+## 13. Registro de modelos e posse
+
+```json
+{ "model": "qwen3.5:4b", "digest": "sha256:...", "class": "LOCAL_VERIFICADO|CLOUD|DESCONHECIDO",
+  "verified?": { "at": "...", "by": "user", "method": "ollama show + /api/ps", "evidence": "..." } }
+```
+```json
+{ "model": "qwen3.5:4b", "loaded_at": "...", "loaded_by_factory": true, "last_call_at": "...",
+  "expected_expires_at": "...", "shared_detected": false }
+```
+Só registros com `loaded_by_factory: true` e `shared_detected: false` podem ser descarregados pela fábrica (06 §2.1).
+
+## 14. Verificação de vida de uma tentativa
+
+```json
+{ "attempt_id": "...", "pid": 1234, "process_create_time": "...", "job_object": "AppFactory-afd/task-...",
+  "last_heartbeat_active_ms": 123456789, "lease_expires_active_ms": 123516789 }
+```
+Tempos em milissegundos de **tempo ativo do sistema** (15 §4). Uma tentativa só é `interrupted` depois de confirmada morta ou após o encerramento do seu Job Object (15 §5).

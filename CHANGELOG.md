@@ -4,7 +4,27 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
-### Fase 1 — Arquitetura (2026-09-26) — pendente de commit
+### Fase 1.1 — Revisão e correção documental (2026-09-26) — pendente de commit
+
+Base: revisão técnica do commit `4082457` (achados N1–N8). Somente documentação, especificação, decisões e estado.
+
+#### Adicionado
+- `docs/architecture/15-daemon.md` — instância única, `af daemon`, início no logon, leases em tempo ativo, sono, Job Objects, órfãos (N3).
+- `.appfactory/checkpoints/CP-0003-fase1-1.json` (pendente de commit).
+- Decisões D-0026 a D-0039; issues KI-0014 a KI-0017; verificações V35–V44.
+- Diagramas 9 (execução não confiável e papéis) e 10 (ciclo de vida do daemon).
+
+#### Alterado
+- `08-seguranca.md` reestruturado: código gerado não confiável, S1h (usuário `afrunner`, Job Object, ACL), S2 obrigatório, tokens por papel, aprovações interativas, STOP persistente, npm/pip, infraestrutura protegida ampliada (N1, N2).
+- `05-resource-manager.md`: GPU no WDDM (VRAM própria/de terceiros, margem, janela de observação, heurísticas), limiares canônicos de CPU, BATTERY, tetos de GPU (N4, N7).
+- `06-provider-model-router.md`: classes de modelo, registro de posse, custo *fail-closed*, Ollama inalterado (N5).
+- `07-persistencia.md`: estado versionado × operacional, recuperação com verificação de vida (N6, N3).
+- `03-jobs.md`, `04-execucao-paralela.md`: 1 job RUNNING por projeto, locks por projeto, regra de `writes`, worktree de integração, escritor único do SQLite (N7).
+- `00`, `01`, `02`, `09`, `10`, `11`, `12`, `13`, `14`, `README.md` alinhados à revisão 1.1.
+- `AGENTS.md` (regras 13–15), `RESOURCE_POLICY.md` (tetos e limiares), `DECISIONS.md` (status de D-0005 e D-0012–D-0025), `KNOWN_ISSUES.md`, `TEST_STATUS.md`, `COMMAND_LOG.md`, `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`, `.appfactory/job.json` (agora resumo de marco).
+- `CP-0002-fase1.json`: `validated_commit` = `4082457` (N8).
+
+### Fase 1 — Arquitetura (2026-09-26) — commit `4082457`
 
 #### Adicionado
 - `docs/architecture/` (15 documentos): visão geral, 21 componentes com 14 campos cada, fluxo de tarefa, sistema de jobs, execução paralela, Resource Manager, Provider/Model Router, persistência, segurança, autoevolução, diretórios, tecnologias, contratos, 8 diagramas ASCII, proposta de fatiamento da Fase 2.

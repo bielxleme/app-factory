@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "CP-0003",
+  "slug": "fase1-1",
+  "title": "Fase 1.1 — revisão e correção documental da arquitetura",
+  "created_at": "2026-09-26T18:15:00-03:00",
+  "created_by": "Claude (Cowork)",
+  "phase": "1.1",
+  "phase_name": "Revisão e correção documental da arquitetura",
+  "state": "phase_1_1_documented_pending_commit",
+  "git": {
+    "branch": "main",
+    "parent_commit": "40824577b9b8ad7eb041a3facf538f5d78f1e56c",
+    "validated_commit": null,
+    "expected_commit_message": "docs: revise architecture after Phase 1 review (Phase 1.1)",
+    "remote": "https://github.com/bielxleme/app-factory.git",
+    "note": "validated_commit será preenchido no commit seguinte, depois que o usuário aprovar e fizer o commit (D-0011)."
+  },
+  "review_source": {
+    "reviewed_commit": "4082457",
+    "findings": {
+      "N1": "Código gerado não confiável; S1h (usuário afrunner, Job Object, ACL); S2 obrigatório; tokens por papel; aprovações interativas; STOP persistente; npm/pip — 08-seguranca.md; D-0026, D-0027, D-0028",
+      "N2": "Infraestrutura protegida ampliada; rejeição automática de EP; guardrails com comando fixo — 08 §5, 09; D-0029",
+      "N3": "Instância única, af daemon, logon, tempo ativo, verificação de vida, sono, Job Objects, órfãos — 15-daemon.md; D-0030, D-0031",
+      "N4": "GPU no WDDM: VRAM própria/de terceiros, margem, janela de observação, heurísticas, validação futura — 05 §1.1; D-0032",
+      "N5": "Modelos LOCAL_VERIFICADO/CLOUD/DESCONHECIDO/DE TERCEIROS; posse; fail-closed de custo — 06 §2, §7, §9; D-0033, D-0034",
+      "N6": "Estado versionado x operacional; runtime/job.json — 07 §1; D-0035 (revisa D-0005)",
+      "N7": "CPU, BATTERY, SQLite escritor único, writes, locks por projeto, 1 job RUNNING por projeto, worktree de integração — 03, 04, 05; D-0036, D-0037, D-0038",
+      "N8": "CP-0002 validado em 4082457; decisões D-0012..D-0025 confirmadas; CP-0003 criado — D-0039"
+    }
+  },
+  "user_decisions": {
+    "sandbox": "opção B — S1 endurecido com usuário dedicado; S2 quando exigido",
+    "concurrency": "1 job RUNNING por projeto; paralelismo entre projetos permitido",
+    "daemon": "início no logon, só usuário conectado, instância única, sem serviço Windows",
+    "ollama": "cloud = externo; só verificados = local; cost_class ausente = pago/desabilitado; descarregar só o próprio; instalação inalterada; migração para D: adiada"
+  },
+  "files_created": [
+    "docs/architecture/15-daemon.md",
+    ".appfactory/checkpoints/CP-0003-fase1-1.json"
+  ],
+  "files_modified": [
+    "docs/architecture/README.md", "docs/architecture/00-visao-geral.md", "docs/architecture/01-componentes.md",
+    "docs/architecture/02-fluxo-de-tarefa.md", "docs/architecture/03-jobs.md", "docs/architecture/04-execucao-paralela.md",
+    "docs/architecture/05-resource-manager.md", "docs/architecture/06-provider-model-router.md", "docs/architecture/07-persistencia.md",
+    "docs/architecture/08-seguranca.md", "docs/architecture/09-autoevolucao.md", "docs/architecture/10-diretorios.md",
+    "docs/architecture/11-tecnologias.md", "docs/architecture/12-contratos.md", "docs/architecture/13-diagramas.md",
+    "docs/architecture/14-plano-fase-2.md",
+    "AGENTS.md", "RESOURCE_POLICY.md", "DECISIONS.md", "KNOWN_ISSUES.md", "TEST_STATUS.md", "CHANGELOG.md",
+    "COMMAND_LOG.md", "PROJECT_STATE.md", "TASK_QUEUE.md", "HANDOFF.md", ".appfactory/job.json",
+    ".appfactory/checkpoints/CP-0002-fase1.json"
+  ],
+  "decisions": ["D-0026", "D-0027", "D-0028", "D-0029", "D-0030", "D-0031", "D-0032", "D-0033", "D-0034", "D-0035", "D-0036", "D-0037", "D-0038", "D-0039"],
+  "tests": ["V35", "V36", "V37", "V38", "V39", "V40", "V41", "V42", "V43", "V44"],
+  "not_done_on_purpose": [
+    "Nenhum código de produção (Job Manager, Resource Manager, daemon) criado",
+    "Usuário Windows afrunner não criado; nenhuma ACL alterada",
+    "Instalação do Ollama e modelos inalterados",
+    "Docker não instalado nem alterado",
+    "Nenhuma tarefa agendada criada"
+  ],
+  "pending": [
+    "Revisão e commit pelo usuário",
+    "Preencher validated_commit do CP-0003 no commit seguinte",
+    "Validações futuras: KI-0014 (S1h), KI-0016 (ACL de D:), KI-0017 (GPU), KI-0009 (qwen3-coder)"
+  ],
+  "next_step": "FASE 2 — Implementação, fatia 2.1 Fundação (somente com nova instrução do usuário)"
+}

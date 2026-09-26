@@ -1,5 +1,7 @@
 # 00 — Visão geral
 
+**Revisão 1.1 (2026-09-26):** topologia com Job Objects, usuário `afrunner` para código não confiável, instância única e início no logon; estado operacional separado do versionado.
+
 ## 1. Princípios (em ordem de prioridade)
 
 1. **Segurança e reversibilidade antes de velocidade.** Toda ação com efeito colateral é registrada, autorizada conforme risco e reversível sempre que possível.
@@ -10,6 +12,7 @@
 6. **Sem dependência de um fornecedor.** Todo modelo/provedor/ferramenta fica atrás de uma interface.
 7. **Continuidade entre IAs.** O estado é legível por humanos (Markdown/JSON) para que outra IA retome o trabalho.
 8. **Simplicidade operacional.** Um único processo supervisor, SQLite em vez de servidores de fila, sem serviços extras obrigatórios.
+9. **Código gerado é não confiável.** Nunca executa como o usuário principal (08 §0).
 
 ## 2. Baseline de hardware (medido em 2026-09-26 16:17 -03:00)
 
@@ -31,8 +34,11 @@
 ```
 Windows (host)
  |
- +-- afd  (App Factory Daemon, Python, 1 processo, prioridade BELOW_NORMAL)
- |     |- API local  127.0.0.1:<porta>  (token local)      <- CLI "af" / UI futura
+ +-- afd  (App Factory Daemon, Python, INSTANCIA UNICA (mutex), BELOW_NORMAL,
+ |     |     iniciado por "af daemon start" ou no logon do usuario; nao e servico)
+ |     |- Job Object raiz (KILL_ON_JOB_CLOSE) contendo todos os filhos
+ |     |- API local  127.0.0.1:<porta>  (tokens por papel: user / runner)  <- CLI "af" / UI futura
+ |     |- STOP persistente (SQLite) + em memoria
  |     |- Job Manager + Scheduler
  |     |- Resource Manager (amostragem 5 s)
  |     |- Model Router + Provider Router
@@ -40,20 +46,23 @@ Windows (host)
  |     |- Checkpoint / Logging / Handoff services
  |     `- Approval Gate
  |
- +-- agent-runner (subprocesso por task; 0..N conforme política)
+ +-- agent-runner (subprocesso por task, usuario principal, codigo confiavel da fabrica)
  |     `- executa UM agente (Coder, QA, ...) com TaskSpec + ContextPack
  |
- +-- heavy processes (builds, testes, Playwright, containers) — lançados via Toolbox
+ +-- sandbox S1h (usuario local "afrunner", Job Object por task, ACL so no worktree)
+ |     `- codigo NAO confiavel: testes, scripts, app gerado
+ |
+ +-- heavy processes confiaveis (git, ferramentas do Toolbox) — lancados via Toolbox
  |
  +-- Ollama (serviço existente do usuário) — gerido só via API
- `-- Docker Desktop (opcional, iniciado sob demanda para sandbox S2)
+ `-- Docker Desktop (opcional, sob demanda para S2: rede isolada, dependencias, builds)
 ```
 
 Todo acesso a modelos, ferramentas perigosas e recursos passa pelo **daemon**. Agentes nunca chamam provedores diretamente: pedem ao daemon (que mede, limita, registra e aplica política).
 
 ## 4. Modelo de dados em uma frase
 
-**SQLite (`.appfactory/state/factory.db`, WAL) é a fonte da verdade**; arquivos em `.appfactory/jobs/<job>/` guardam artefatos, contextos e checkpoints de task; os Markdown da raiz (`PROJECT_STATE.md`, `HANDOFF.md` etc.) são **visões humanas** geradas/atualizadas pelo Handoff System.
+**SQLite (`.appfactory/state/factory.db`, WAL) é a fonte da verdade da execução, e só o daemon o abre**; arquivos em `.appfactory/jobs/<job>/` e `.appfactory/runtime/` guardam o estado operacional (ignorado pelo Git); os Markdown da raiz (`PROJECT_STATE.md`, `HANDOFF.md` etc.) são o **estado versionado do desenvolvimento da fábrica**, mantido pelas sessões de desenvolvimento, não pelo daemon (07 §1).
 
 ## 5. Fábrica x projetos gerados
 

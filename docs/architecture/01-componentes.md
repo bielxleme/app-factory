@@ -2,14 +2,16 @@
 
 Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 
+**Revisão 1.1 (2026-09-26):** código gerado por agentes é não confiável e só executa em S1h/S2 (N1); o daemon é o único escritor do SQLite (N7); ciclo de vida de runners com Job Object (N3); posse de modelos (N5); handoff operacional separado do estado versionado (N6).
+
 ## 0. Padrões comuns
 
 - **Serviços** (Job Manager, Resource Manager, routers, Checkpoint, Logging, Handoff, Memory) rodam **dentro do daemon `afd`**.
-- **Agentes** rodam como **subprocesso `agent-runner`**, um por task, sem estado próprio: recebem `TaskSpec` + `ContextPack` e devolvem `TaskResult` + artefatos (ver `12-contratos.md`).
-- **Comunicação (Padrão):** agentes nunca falam diretamente entre si. Publicam/consomem eventos pelo **Event Bus** e leem/escrevem no **Job Store** (padrão *blackboard*). Chamadas a modelos e ferramentas vão pela API local do daemon.
+- **Agentes** rodam como **subprocesso `agent-runner`** (código confiável da fábrica, usuário principal, dentro do Job Object do daemon), um por task, sem estado próprio. Todo código **não confiável** que o agente mandar executar (testes, scripts, app gerado) roda em **S1h** (usuário `afrunner`) ou **S2** via Toolbox (08 §0 e §4). O runner recebe `TaskSpec` + `ContextPack` e devolve `TaskResult` + artefatos (ver `12-contratos.md`).
+- **Comunicação (Padrão):** agentes nunca falam diretamente entre si. Publicam/consomem eventos e leem/escrevem o **Job Store** (padrão *blackboard*) **exclusivamente pela API local do daemon**, com token `runner` de escopo da própria task (08 §8). **Somente o daemon abre o SQLite** (D-0037). Chamadas a modelos e ferramentas também vão pela API.
 - **Registro de estado (Padrão):** eventos `task.*` no Event Store (SQLite) + checkpoint de passo em `.appfactory/jobs/<job>/tasks/<task>/step-NNN.json` + log JSONL.
-- **Interrupção (Padrão):** cooperativa. O runner checa o *cancel token* entre passos; ao receber `pause/cancel` termina o passo atual, grava checkpoint e sai. Se não sair em 30 s: `terminate`; mais 10 s: kill da árvore de processos. Operações marcadas como não-interrompíveis (ex.: `git commit`, escrita de migração) terminam antes.
-- **Retomada (Padrão):** novo `agent-runner` com o mesmo `TaskSpec`, a partir do último checkpoint de passo e do `ContextPack` salvo. Passos com efeito colateral usam o **journal de ferramentas** (intenção gravada antes, resultado depois) para não repetir ações já feitas.
+- **Interrupção (Padrão):** cooperativa. O runner checa o *cancel token* entre passos; ao receber `pause/cancel` termina o passo atual, grava checkpoint e sai. Se não sair em 30 s: `terminate`; mais 10 s: kill da árvore de processos. Operações marcadas como não-interrompíveis (ex.: `git commit`, escrita de migração) terminam antes. Se o daemon desaparecer, o Job Object raiz (`KILL_ON_JOB_CLOSE`) encerra tudo; o runner também tem *dead-man switch* (15 §7–8).
+- **Retomada (Padrão):** novo `agent-runner` com o mesmo `TaskSpec`, a partir do último checkpoint de passo e do `ContextPack` salvo. Passos com efeito colateral usam o **journal de ferramentas** (intenção gravada antes, resultado depois) para não repetir ações já feitas. Nova tentativa só depois da verificação de vida da anterior (15 §5).
 - **Modelos:** tiers `T0` (≤1 GB), `T1` (≤3,5 GB), `T2` (≤5,5 GB, exclusivo da GPU), `EXT` (externo). Ver `06-provider-model-router.md`.
 
 ---
@@ -56,30 +58,30 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 
 | Campo | Definição |
 | --- | --- |
-| Responsabilidade | Dono do ciclo de vida de jobs e tasks: fila, prioridades, dependências do DAG, leases/heartbeats, locks de arquivos, lançamento e término de `agent-runner`, retries, integração (merge) de branches, recuperação após falha. |
+| Responsabilidade | Dono do ciclo de vida de jobs e tasks: fila, prioridades, dependências do DAG, leases/heartbeats (tempo ativo), locks de arquivos **por projeto**, regra de **no máximo 1 job RUNNING por projeto**, lançamento e término de `agent-runner` em Job Objects, retries, integração (merge) de branches, recuperação após falha. |
 | Entradas | `JobRequest`, `plan.json`, eventos de tasks, decisões de admissão do Resource Manager, comandos do usuário (pause/resume/cancel/priority). |
 | Saídas | Transições de estado, processos iniciados/terminados, eventos `job.*`/`task.*`, espelho `.appfactory/job.json`. |
 | Ferramentas | SQLite, Toolbox (git worktree/merge), gerenciamento de processos (psutil). |
-| Permissões | Criar/remover worktrees em `workspaces/_worktrees/`, merge em branches `af/*`. **Nunca** em `main` sem aprovação. |
+| Permissões | Criar/remover worktrees em `workspaces/_worktrees/` (inclusive `_integration-<job>`), conceder/revogar a ACL do `afrunner` no worktree da task, merge em branches `af/*`. **Nunca** em `main` sem aprovação. |
 | Dependências | Resource Manager, Checkpoint, Logging, Security (políticas), Event Bus. |
 | Quando executar | Sempre (serviço do daemon); ciclo do scheduler a cada 2 s ou em evento. |
 | Quando NÃO executar | Nunca desliga com o daemon ativo; no arquivo `.appfactory/STOP` só pausa despacho. |
 | Paralelo | Instância única (é o coordenador); gerencia N tasks em paralelo. |
 | Recursos | Parte do daemon (~50–100 MB RAM, CPU desprezível). |
 | Comunicação | Dono do Job Store; publica e consome todos os eventos de ciclo de vida. |
-| Registro de estado | Tabelas `jobs`, `tasks`, `attempts`, `leases`, `locks`, `events` + espelho `job.json` a cada transição. |
-| Interrupção | Parada do daemon: para de despachar, pede pausa cooperativa a todos os runners, espera até 30 s, grava estado, sai. |
-| Retomada | Na partida: rotina de recuperação (ver `07-persistencia.md` §3) — leases vencidos viram tentativas interrompidas e voltam à fila a partir do checkpoint. |
+| Registro de estado | Tabelas `jobs`, `tasks`, `attempts`, `attempts_liveness`, `leases`, `locks`, `events` (estado + evento na mesma transação) + espelho operacional `.appfactory/runtime/job.json` a cada transição. |
+| Interrupção | Parada do daemon: sequência de `15-daemon.md` §9. STOP registrado (08 §9) congela todo despacho. |
+| Retomada | Na partida: rotina de recuperação (`07-persistencia.md` §3) — tentativas antigas confirmadas mortas (PID + horário de criação) viram `interrupted` e voltam à fila a partir do checkpoint. |
 
 ## 4. RESOURCE MANAGER
 
 | Campo | Definição |
 | --- | --- |
 | Responsabilidade | Medir CPU/RAM/GPU/VRAM/disco/energia/atividade do usuário, decidir o **modo** (FOREGROUND, BACKGROUND, BATTERY, CONTENTION, CRITICAL), fazer o **controle de admissão** (slots de agentes, processos pesados e o lease exclusivo de GPU) e pedir pausa ou descarregamento de modelos. |
-| Entradas | Sondas: WMI/CIM (CPU, RAM, bateria), NVML/`nvidia-smi` (GPU, VRAM, temperatura), `GetLastInputInfo` (ociosidade), disco, Ollama `/api/ps`. Política `config/resources.yaml`. |
+| Entradas | Sondas: WMI/CIM (CPU, RAM, bateria), NVML/`nvidia-smi` (GPU e VRAM **totais**, temperatura — sem VRAM por processo no WDDM), `SHQueryUserNotificationState` (tela cheia), `GetLastInputInfo` (ociosidade), disco, runtime local (`/api/ps`) + registro de posse de modelos. Política `config/resources.yaml`. Método de cálculo: `05-resource-manager.md` §1.1. |
 | Saídas | `ResourceSnapshot` (a cada 5 s), `resource.mode_changed`, respostas de admissão (`grant/deny/wait`), ordens `unload_model`, `pause_task`. |
 | Ferramentas | psutil, nvidia-ml-py (fallback `nvidia-smi`), API do Ollama, ctypes (Win32). |
-| Permissões | Somente leitura do sistema + descarregar modelos no Ollama + pedir pausa a tasks. **Nunca** altera configurações do Windows, drivers ou planos de energia. |
+| Permissões | Somente leitura do sistema + descarregar **apenas modelos carregados pela fábrica** + pedir pausa a tasks. **Nunca** descarrega modelos de outras ferramentas nem altera configurações do Windows, drivers, planos de energia ou a instalação do Ollama. |
 | Dependências | Nenhuma de negócio; é consultado por Job Manager e Model Router. |
 | Quando executar | Sempre (serviço do daemon). |
 | Quando NÃO executar | — (se uma sonda falhar, assume o pior caso daquele recurso). |
@@ -116,7 +118,7 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Responsabilidade | Interagir com páginas quando HTTP simples não basta: páginas dinâmicas, testes E2E dos apps gerados, capturas de tela para o UI/UX Agent. |
 | Entradas | `TaskSpec` com URL(s) e objetivo; política de domínios. |
 | Saídas | Texto extraído, screenshots, relatórios E2E, trace do Playwright. |
-| Ferramentas | Playwright (Chromium isolado), perfil descartável por task. |
+| Ferramentas | Playwright (Chromium isolado), perfil descartável por task; o app gerado sob teste roda em S1h ou S2. |
 | Permissões | Navegação só em allowlist ou `localhost` do app gerado. **Proibido:** digitar credenciais reais, pagar, criar contas, aceitar termos, enviar formulários externos sem aprovação, usar o perfil do Chrome do usuário. Downloads vão para quarentena. |
 | Dependências | Security, Resource Manager (processo pesado), Toolbox. |
 | Quando executar | E2E e verificação visual de apps gerados; sites que exigem JavaScript. |
@@ -135,8 +137,8 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Responsabilidade | Implementar uma task do plano: escrever/alterar código e testes unitários **dentro do seu worktree**, respeitando o `writes` declarado. |
 | Entradas | `TaskSpec` (objetivo, critérios de aceite, `writes`, arquivos relevantes), `ContextPack`. |
 | Saídas | Commits no branch `af/<job>/<task>`, `TaskResult` com resumo e arquivos alterados. |
-| Ferramentas | Toolbox: fs (escopo do worktree), shell (lista permitida), git (commit local), execução de testes. |
-| Permissões | R1: escrita só no worktree; shell com allowlist; instalar dependências = R2 (aprovação ou política do projeto); sem rede por padrão (exceto registros de pacotes aprovados). |
+| Ferramentas | Toolbox: fs (escopo do worktree), shell (lista permitida), git (commit local), execução de testes — **todo código executado vai para S1h ou S2** (08 §4). |
+| Permissões | R1: escrita só no worktree (`writes` = arquivos explícitos ou `dir/**`); execução só em S1h/S2; instalar dependências = R2 com as restrições de 08 §4.3 (scripts de instalação só em S2); sem rede por padrão. |
 | Dependências | Job Manager (worktree/locks), Model Router, Memory, Toolbox, QA. |
 | Quando executar | Task `code.*` com dependências concluídas e lock dos arquivos obtido. |
 | Quando NÃO executar | Sem lock dos arquivos; arquivo fora de `writes` (pede replanejamento); modo CRITICAL. |
@@ -193,7 +195,7 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Entradas | Relatório de falha do QA/Build, logs, stack traces, diff recente. |
 | Saídas | Correção em branch próprio, teste de regressão, nota de causa-raiz. |
 | Ferramentas | Toolbox (shell, testes, git bisect/diff), leitura de logs. |
-| Permissões | R1 no worktree da task com falha. |
+| Permissões | R1 no worktree da task com falha; reprodução e execução em S1h/S2. |
 | Dependências | QA, Build, Model Router, Memory. |
 | Quando executar | Evento `qa.failed` ou `build.failed`. |
 | Quando NÃO executar | Falhas de infraestrutura (disco, rede, cota) → Job Manager coloca em WAITING; falhas já com 3 tentativas → BLOCKED para humano ou tier superior. |
@@ -211,7 +213,7 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Responsabilidade | Definir e executar a verificação: lint, tipos, testes unitários/integração/E2E, cobertura mínima e checagem dos critérios de aceite. É quem diz se uma task está **pronta**. |
 | Entradas | Branch da task ou de integração, critérios de aceite, configuração de testes do projeto. |
 | Saídas | `qa-report.json` (aprovado/reprovado, falhas, cobertura) e eventos `qa.passed`/`qa.failed`. |
-| Ferramentas | pytest, ruff, runners JS do projeto, Playwright via Browser Agent, sandbox S1/S2. |
+| Ferramentas | pytest, ruff, runners JS do projeto, Playwright via Browser Agent, sandbox **S1h/S2** (testes são código não confiável). |
 | Permissões | R1: executa testes no sandbox; não altera código (só arquivos de teste quando a task pedir). |
 | Dependências | Job Manager, Toolbox/sandbox, Resource Manager (processo pesado), Browser. |
 | Quando executar | Após cada task de código, após cada merge na integração e antes do Build. |
@@ -274,7 +276,7 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Quando executar | Tasks `media.*`, preferencialmente em modo BACKGROUND. |
 | Quando NÃO executar | FOREGROUND com geração local pesada; BATTERY; CONTENTION; quando houver outro modelo na GPU. |
 | Paralelo | **Não** na GPU (lease exclusivo); gerações externas podem rodar em paralelo. |
-| Recursos | Geração de imagem local ocupa quase todos os 6 GB de VRAM, portanto exige descarregar os LLMs. Vídeo local não é viável neste hardware além de clipes curtos em baixa resolução, então o padrão é externo. |
+| Recursos | Geração de imagem local ocupa quase todos os 6 GB de VRAM, portanto exige descarregar os LLMs **da fábrica** (modelos de terceiros nunca são descarregados; se não houver VRAM, a geração espera). Vídeo local não é viável neste hardware além de clipes curtos em baixa resolução, então o padrão é externo. |
 | Comunicação | Padrão. |
 | Registro de estado | Padrão + fila própria de gerações. |
 | Interrupção | Padrão; a geração em curso é descartada. |
@@ -306,8 +308,8 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Responsabilidade | Mapear **tipo de tarefa** para **perfil de modelo** (tier, contexto, capacidades) e escolher o modelo concreto conforme recursos e política; gerenciar o ciclo de vida dos modelos locais (carregar/manter/descarregar) junto com o Resource Manager. |
 | Entradas | `task_type`, tamanho do contexto, capacidades exigidas (tools, visão, JSON), modo de recursos, catálogo `config/models.yaml`. |
 | Saídas | Lista ordenada de candidatos para o Provider Router; ordens de load/unload. |
-| Ferramentas | API do Ollama (`/api/ps`, `keep_alive`), catálogo de modelos. |
-| Permissões | Carregar/descarregar modelos no Ollama. **Não** baixa modelos novos (`ollama pull` exige aprovação). |
+| Ferramentas | Runtime local (Ollama: `/api/ps`, `keep_alive`), catálogo e `local_allowlist` de `config/models.yaml`, registro de posse `model_loads`. |
+| Permissões | Carregar **somente modelos LOCAL_VERIFICADO**; descarregar **somente modelos que a fábrica carregou** (06 §2.1). **Não** baixa modelos novos (`ollama pull` exige aprovação) nem altera a instalação do Ollama. |
 | Dependências | Resource Manager (lease de GPU), Provider Router, Memory (orçamento de tokens). |
 | Quando executar | Antes de toda chamada de modelo; periodicamente para descarregar modelos ociosos. |
 | Quando NÃO executar | — |
@@ -316,7 +318,7 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Comunicação | API síncrona interna; eventos `model.loaded`/`model.unloaded`/`model.swapped`. |
 | Registro de estado | Tabela `model_events` + medições reais de VRAM por modelo/contexto (`model_profiles`), que calibram as estimativas. |
 | Interrupção | Parte do daemon. |
-| Retomada | Na partida, consulta `/api/ps` e reconcilia o que está carregado. |
+| Retomada | Na partida, consulta `/api/ps` e reconcilia com o registro de posse; modelos de terceiros ficam intactos. |
 
 ## 17. MEMORY/CONTEXT SYSTEM
 
@@ -379,11 +381,11 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 
 | Campo | Definição |
 | --- | --- |
-| Responsabilidade | Produzir o "ponto de parada" legível para humanos e outras IAs: atualiza `HANDOFF.md`, `PROJECT_STATE.md`, `TASK_QUEUE.md` (fábrica) e `handoff.md` de cada job/projeto. |
+| Responsabilidade | Produzir o "ponto de parada" **operacional**: `.appfactory/runtime/handoff/factory-status.md`, `handoff.md` de cada job e `workspaces/<p>/.appfactory/handoff.md` do projeto (07 §1). **Não** escreve os arquivos de estado versionados da fábrica (`HANDOFF.md`, `PROJECT_STATE.md`, `TASK_QUEUE.md`), que pertencem às sessões de desenvolvimento (D-0035). |
 | Entradas | Estado do banco, último checkpoint, eventos recentes, pendências e bloqueios. |
 | Saídas | Markdown de handoff + `handoff.json` estruturado. |
 | Ferramentas | Templates, Memory (resumos). |
-| Permissões | Escrita nos arquivos de estado. |
+| Permissões | Escrita apenas em `.appfactory/runtime/handoff/`, `.appfactory/jobs/<job>/` e no `.appfactory/` do projeto (no branch de integração). |
 | Dependências | Job Manager, Checkpoint, Memory. |
 | Quando executar | Pausa/parada do daemon, fim de job, mudança para BLOCKED, troca de provedor, fim de sessão de IA, a cada 30 min de job ativo. |
 | Quando NÃO executar | Sem mudança desde o último handoff. |
@@ -401,8 +403,8 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Responsabilidade | Analisar métricas da própria fábrica (falhas, tempo, uso de recursos, custo) e **propor** melhorias como Evolution Proposals (`EP-NNNN`), implementá-las em branch isolado, testá-las contra as invariantes e compará-las com o baseline. **Nunca** faz merge sozinho. |
 | Entradas | Métricas do banco, logs agregados, `evals/`, feedback do usuário. |
 | Saídas | `evolution/proposals/EP-NNNN.md`, branch `evo/EP-NNNN`, relatório de comparação. |
-| Ferramentas | Toolbox (worktree do repo da fábrica), suíte `tests/guardrails/`, `evals/`. |
-| Permissões | R1 somente no worktree `evo/*`. **Proibido** alterar caminhos protegidos (`config/policies/protected-paths.yaml`) e o próprio conjunto de guardrails. Merge = R3 (humano). |
+| Ferramentas | Toolbox (worktree `evo/*` do repo da fábrica, executado em S1h/S2), suíte `tests/guardrails/` via comando fixo e protegido (08 §5.3), `evals/`. |
+| Permissões | R1 somente no worktree `evo/*`. **Proibido** alterar qualquer caminho protegido (08 §5.1): diff que toque caminho protegido ⇒ **EP rejeitada automaticamente**. Merge = R3 (humano). |
 | Dependências | QA, Security, Checkpoint, Approval Gate. |
 | Quando executar | Sob pedido do usuário ou agendado em modo BACKGROUND, prioridade P3. |
 | Quando NÃO executar | Há jobs do usuário na fila (P0–P2); FOREGROUND/BATTERY/CRITICAL; existe EP anterior não resolvida. |

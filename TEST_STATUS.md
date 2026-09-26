@@ -43,3 +43,26 @@ Ambientes: **VM** = shell local do Cowork (Ubuntu 22.04.5, isolado) · **Nuvem**
 | V32 | `.gitignore` cobre state/jobs/cache/STOP/workspaces e não ignora docs/tools/checkpoints | VM (`git check-ignore -v`) | OK |
 | V33 | Busca de segredos (ghp_, github_pat_, sk-, AKIA, chaves privadas) | VM (script Python) | OK — nenhum |
 | V34 | Links e referências internas entre documentos | VM (script Python) | OK — nenhum quebrado |
+
+## Revisão técnica da Fase 1 (2026-09-26, somente leitura)
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| R01 | Working tree = commit analisado | VM (`git diff 4082457 \| wc -l`) | OK — 0 linhas |
+| R02 | Remoto | Nuvem (`git ls-remote`) | OK — `main` = `40824577b9b8…` |
+| R03 | Revisão técnica da arquitetura | leitura | 8 achados (N1–N8) → Fase 1.1 |
+
+## Fase 1.1 — Revisão e correção documental (2026-09-26)
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V35 | Markdown: blocos de código fechados e tabelas com número de colunas consistente, em todos os `.md` | VM (script Python) | OK |
+| V36 | JSON válidos (`job.json`, CP-0001, CP-0002, CP-0003) | VM (`json.load` + `python3 -m json.tool`) | OK — 4 arquivos |
+| V37 | Links internos, referências `NN-*.md` e referências de seção (`NN §x.y`) | VM (script Python) | OK — nenhuma quebrada |
+| V38 | 21 componentes × 14 campos (após edições) | VM (script Python) | OK |
+| V39 | Diagramas | VM (script Python) | OK — 10 (8 obrigatórios + 2 da revisão 1.1) |
+| V40 | Frases obsoletas/contraditórias da v1.0 (22 padrões: `models: auto`, `qwen3-coder (local)`, `slots_cpu`, `descarrega tudo`, `path_glob`, `PAUSED ou EXT` etc.) | VM (script Python) | OK — nenhuma nos documentos normativos |
+| V41 | Consistência cruzada entre Resource Manager, Job Manager, Segurança, Persistência e Model Router (11 termos-chave presentes em todos os documentos que devem citá-los) | VM (script Python) + revisão manual | OK — 3 contradições encontradas e corrigidas durante a revisão: GPU preemptada ia para `PAUSED` em 02/06 (agora `WAITING(resources)` como em 05 §3); "descarrega tudo" em 05/RESOURCE_POLICY (agora só modelos da fábrica); limite de 8 processos × 32 por Job Object (05 §6 esclarecido) |
+| V42 | Nenhuma implementação da Fase 2 (`.py`, `.toml`, `.ini`, `.yaml`, `src/`, `config/`, `tests/` etc.) | VM (`git ls-files` + não rastreados) | OK — nenhuma |
+| V43 | Escopo: só documentação, especificação, decisões e estado; `tools/`, `.gitignore`, `.gitattributes` inalterados; nada alterado fora de `D:\Claude\app-factory` | VM (`git status`, `git diff --stat`, `find -newer` em `D:\Claude`) | OK — 27 modificados + 2 novos, todos previstos; nenhum arquivo externo modificado |
+| V44 | `git diff --check`, busca de segredos, `.git` sem lock | VM | OK |

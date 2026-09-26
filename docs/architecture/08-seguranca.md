@@ -1,89 +1,191 @@
 # 08 — Segurança (G)
 
-Diagrama: `13-diagramas.md` §8.
+**Revisão 1.1 (2026-09-26):** reestruturado pela revisão técnica da Fase 1 (itens N1 e N2). Decisões: D-0026 a D-0029. Diagramas: `13-diagramas.md` §8 e §9.
+
+## 0. Princípio central: código gerado é NÃO CONFIÁVEL
+
+| Classe de confiança | O que é | Onde pode executar |
+| --- | --- | --- |
+| **Confiável** | Código da fábrica em `main` (daemon, Toolbox, runners), binários fixos da allowlist (git, uv, python.exe do ambiente da fábrica), o usuário | Processos do **usuário principal** |
+| **Não confiável** | Qualquer código escrito ou alterado por agente/LLM (inclusive testes e scripts), código dos projetos gerados, dependências de terceiros e seus scripts de instalação, conteúdo da web, código do branch `evo/*` do Evolution Agent | **Somente em S1h ou S2** (§4), nunca como usuário principal |
+
+Consequência: as permissões por agente (§3) valem para as **chamadas ao Toolbox**; o que impede código não confiável de escapar é o **isolamento do sistema operacional** (usuário dedicado + ACLs + Job Object) ou o container. Política no código sozinha não é considerada barreira.
 
 ## 1. Níveis de risco das ações
 
 | Nível | Exemplos | Autorização |
 | --- | --- | --- |
 | **R0** leitura | ler arquivos do workspace, `git status/log/diff`, buscar documentação | automática |
-| **R1** escrita reversível e confinada | escrever no worktree da task, commit em `af/*`, rodar testes no sandbox | automática, com log |
+| **R1** escrita reversível e confinada | escrever no worktree da task, commit em `af/*`, rodar testes em S1h/S2 | automática, com log |
 | **R2** efeito fora do confinamento ou difícil de reverter | instalar dependência, rede para domínio novo, criar banco/container, `ollama pull`, escrever fora do worktree | Security Agent + política; aprovação humana se a política do projeto não pré-autorizar |
-| **R3** irreversível, externo, público ou com custo | merge em `main`, push, tag, publicação, deploy, apagar arquivos/branches do usuário, migração destrutiva, enviar mensagens, usar provedor pago, mudar configuração do sistema | **sempre [H]**, por ação, com expiração |
+| **R3** irreversível, externo, público ou com custo | merge em `main`, push, tag, publicação, deploy, apagar arquivos/branches do usuário, migração destrutiva, enviar mensagens, usar provedor pago, mudar configuração do sistema (inclui criar usuário Windows, alterar ACLs fora do repo, criar tarefa agendada) | **sempre [H]**, por ação, com confirmação interativa (§8) |
 
-Ações **proibidas** mesmo com pedido (o agente devolve para o usuário): inserir senhas/cartões/documentos em formulários, criar contas, mexer em configuração de segurança do Windows, desativar antivírus, contornar CAPTCHA, executar binários baixados de fonte não confiável.
+Ações **proibidas** mesmo com pedido (o agente devolve ao usuário): inserir senhas/cartões/documentos em formulários, criar contas online, mexer em configuração de segurança do Windows, desativar antivírus, contornar CAPTCHA, executar binários baixados de fonte não confiável fora de S2.
 
 ## 2. Secrets
 
-- Armazenados no **Windows Credential Manager** via `keyring` (serviço `appfactory`). Fallback: `.env.local` (ignorado pelo Git), só se o usuário escolher.
+- Guardados no **Windows Credential Manager do usuário principal** via `keyring` (serviço `appfactory`). O cofre é por usuário: o usuário `afrunner` (§4) **não** tem acesso a ele.
 - A configuração guarda **referências** (`secret://providers/<id>/api_key`), nunca valores.
-- Só o Provider Router e o Toolbox (para ferramentas específicas) resolvem segredos, **em memória** e na hora do uso. Agentes e LLMs **nunca** recebem segredos no contexto.
-- Variáveis de ambiente de subprocessos são **limpas** (allowlist: `PATH`, `SYSTEMROOT`, `TEMP`, `LANG`, …).
+- Só processos confiáveis do usuário principal (Provider Router, partes específicas do Toolbox) resolvem segredos, em memória e na hora do uso. Agentes e LLMs **nunca** recebem segredos no contexto; processos em S1h/S2 **nunca** recebem segredos no ambiente, em arquivos ou em argumentos.
+- A senha da conta `afrunner` é gerada aleatoriamente pelo setup (Fase 2, com [H]), guardada só no Credential Manager do usuário principal e nunca exibida nem logada.
+- Ambiente de processos filhos sempre limpo (allowlist: `PATH` mínimo, `SYSTEMROOT`, `TEMP` do sandbox, `LANG`).
 - Redação automática em logs: padrões de chaves conhecidos + valores de todos os segredos registrados + entropia alta em campos sensíveis.
-- `gitleaks` roda antes de todo commit de agente e em todo diff de integração; também recomendado como pre-commit do repo da fábrica.
-- `.gitignore` bloqueia `.env*`, chaves, `secrets/`, `credentials*.json` (já ativo desde a Fase 0).
+- `gitleaks` antes de todo commit de agente e em todo diff de integração.
+- `.gitignore` bloqueia `.env*`, chaves, `secrets/`, `credentials*.json`.
 
 ## 3. Permissões (capabilities por agente)
 
-Arquivo `config/policies/permissions.yaml` (versionado). Exemplo:
+Arquivo `config/policies/permissions.yaml` (versionado e protegido, §5). Exemplo:
 
 ```yaml
 coder:
   fs.read:  ["{worktree}/**", "{project}/**"]
-  fs.write: ["{worktree}/{task.writes}"]
+  fs.write: ["{worktree}/{task.writes}"]          # writes = arquivos explícitos e prefixos dir/** (04 §3)
+  exec:     { sandbox: [S1h, S2] }                # nunca como usuário principal
   shell.exec: { allow: [python, uv, pytest, ruff, node, npm, npx, git], deny_args: ["push", "reset --hard", "clean -fdx"] }
-  net: { allow: [] }                  # sem rede por padrão
+  net: { allow: [] }                              # sem rede por padrão
   git: [status, diff, add, commit, log, show]
 research:
   net: { allow: ["docs.python.org", "developer.mozilla.org", "*.readthedocs.io", "github.com", "pypi.org", "npmjs.com"] }
   fs.write: ["{job}/research/**"]
 ```
 
-O Toolbox aplica a política **antes** de executar (ninguém chama `subprocess` diretamente). Violação → negar + `security.violation` + task `BLOCKED(policy_violation)` na reincidência.
+O Toolbox aplica a política **antes** de executar. Violação → negar + `security.violation` + task `BLOCKED(policy_violation)` na reincidência.
 
 ## 4. Sandbox
 
+### 4.1 Níveis
+
 | Nível | Uso | Isolamento |
 | --- | --- | --- |
-| **S0** em processo | ferramentas somente leitura | validação de caminho (resolve symlinks/junctions; nega `..` e caminhos fora do escopo) |
-| **S1** subprocesso | testes, lint, scripts do projeto confiável | `cwd` = worktree, ambiente limpo, timeout, prioridade BELOW_NORMAL, kill da árvore, monitor de RAM via psutil (mata acima do limite) |
-| **S2** container Docker | código/dependências não confiáveis, bancos de dados, builds | só o worktree montado, `--network none` por padrão, `--memory`/`--cpus` limitados, usuário não root, sem montar o Docker socket |
+| **S0** em processo | ferramentas somente leitura do Toolbox (confiáveis) | validação de caminho (resolve symlinks/junctions; nega `..` e caminhos fora do escopo) |
+| **S1h** (S1 endurecido) — padrão do dia a dia | executar código não confiável que **não** precisa de isolamento de rede: testes, lint, scripts do projeto, app gerado para E2E | usuário Windows dedicado + ACLs NTFS + Job Object (§4.2) |
+| **S2** container Docker | tudo que exigir isolamento de rede, instalação de dependências com scripts, compilação de fontes de terceiros, servidores de banco, código de origem desconhecida | só o worktree montado, `--network none` por padrão, `--memory`/`--cpus`, usuário não root, sem Docker socket |
 
-O Windows Home não tem Windows Sandbox/Hyper-V gerenciável; **S2 depende do Docker Desktop** (WSL2). Se o Docker não estiver disponível: tasks que exigem S2 ficam `BLOCKED` (não caem para S1 silenciosamente).
+O antigo "S1 subprocesso simples" (Fase 1) **não é mais permitido** para código não confiável; só existe para ferramentas confiáveis (ex.: `git` executado pelo próprio Toolbox).
 
-## 5. Filesystem
+### 4.2 S1h — especificação
 
-- Raiz permitida: `D:\Claude\app-factory` (fábrica, `workspaces/`, `.appfactory/`). Tudo fora disso = R2/R3.
-- Escrita da fábrica em `C:` é proibida (exceto temporários do sistema).
-- Remoção: agentes **não apagam** fora de `.appfactory/jobs/*/tmp` e de worktrees criados pela própria fábrica; apagar arquivos do usuário = R3.
-- Caminhos protegidos (`config/policies/protected-paths.yaml`): `config/policies/**`, `src/appfactory/security/**`, `tests/guardrails/**`, `.appfactory/checkpoints/**`, `.git/**`, arquivos de estado da raiz (só o Handoff System escreve).
+1. **Usuário dedicado:** conta local padrão (não administradora) `afrunner` (nome configurável). Criada **uma vez pelo usuário humano** no setup da Fase 2 (ação R3; nada é criado na Fase 1.1). Sem perfil interativo usado, sem acesso ao Credential Manager do usuário principal.
+2. **Lançamento:** o daemon (usuário principal) lança o processo como `afrunner` via logon secundário (`CreateProcessWithLogonW`), **suspenso**, atribui ao Job Object e só então retoma. A viabilidade no Windows 11 Home deve ser provada na Fase 2 antes de qualquer uso real (KI-0014). Se não for viável, todo código não confiável passa a exigir S2 (decisão a registrar).
+3. **Job Object** (um por task, aninhado no Job Object raiz do daemon):
+   - `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` — fechar o handle (inclusive por crash do daemon) mata todos os processos;
+   - limite de memória do job (`JobMemoryLimit`): **1,5 GB em FOREGROUND, 3 GB em BACKGROUND** (configurável, teto em `RESOURCE_POLICY.md`);
+   - limite de memória por processo: igual ao do job;
+   - limite de processos ativos: 32;
+   - limite de CPU (`CPU_RATE_CONTROL`, hard cap): 50% em FOREGROUND, 80% em BACKGROUND;
+   - prioridade BELOW_NORMAL (IDLE em BATTERY);
+   - restrições de UI (`JOB_OBJECT_UILIMIT_*`): sem área de transferência, sem desktop, sem hooks globais;
+   - timeouts aplicados pelo daemon (05 §6).
+4. **ACLs NTFS** (aplicadas no setup pelo usuário e por task pelo daemon):
+   - `afrunner` com **Deny herdado** a partir de `D:\Claude\app-factory` (e demais pastas que o usuário indicar; ver KI-0016 sobre a ACL padrão de `D:\`);
+   - **Allow explícito (Modify)** só no worktree da task em execução (`workspaces\_worktrees\<p>\<task>\`) e no diretório temporário da task; revogado ao fim da task;
+   - leitura explícita no ambiente Python/Node de execução (somente leitura);
+   - nunca acesso a `.appfactory\`, `config\`, `src\`, `tests\guardrails\`, `docs\`, arquivos de estado da raiz, perfil do usuário principal.
+5. **Rede:** o Windows Home não oferece bloqueio de rede por usuário confiável; **S1h não isola rede**. Por isso: task que precisa de isolamento de rede → S2 obrigatório; S1h nunca recebe segredos nem acesso a dados protegidos, então o risco residual é tráfego de rede do código testado (KI-0015).
+6. **Comunicação:** processos S1h **não recebem token da API** e não falam com o daemon; o runner confiável (usuário principal) coleta stdout/stderr/código de saída/arquivos do worktree.
 
-## 6. Terminal e execução de comandos
+### 4.3 Dependências (npm/pip)
 
-- Todos os comandos passam pelo `CommandPolicy`: executável na allowlist, argumentos checados contra padrões negados, `cwd` dentro do escopo, timeout obrigatório.
-- Nada de shell interpretado (`shell=True`) por padrão: lista de argumentos. Pipes e redirecionamentos só em comandos pré-aprovados.
-- Padrões sempre negados sem [H]: `rm -rf`/`Remove-Item -Recurse` fora do escopo, `git push --force`, `git reset --hard` em branch compartilhado, `format`, `diskpart`, `reg`, `bcdedit`, `Set-ExecutionPolicy`, `netsh`, instalação de serviços.
+| Operação | Onde |
+| --- | --- |
+| `npm ci --ignore-scripts` de lockfile existente, registros permitidos | S1h (R2, pré-autorizável por projeto) |
+| `pip install --only-binary=:all: --require-hashes -r <lock>` de índices permitidos | S1h (R2, pré-autorizável) |
+| Qualquer instalação que execute scripts (`postinstall`, `setup.py`, build de wheel/sdist), `npm install` que altere lockfile, instalação sem hashes | **S2** (rede só na etapa de instalação; execução posterior com `--network none`) |
+| Ferramentas globais / alteração do Python ou Node da máquina | proibido (R3 com [H], feito pelo usuário) |
 
-## 7. Navegador
+Toda adição/alteração de dependência passa pelo Security Agent (pip-audit/npm audit + gitleaks) antes da integração.
 
-Perfil Playwright descartável e separado do Chrome do usuário · allowlist de domínios por job · sem digitação de credenciais reais · downloads em quarentena (`.appfactory/jobs/<job>/quarantine/`) e nunca executados · conteúdo de páginas tratado como **dado, nunca como instrução** (defesa contra prompt injection: textos de páginas/arquivos não podem mudar a política nem conceder permissões).
+### 4.4 Quando S2 é obrigatório
 
-## 8. Aprovação humana (Approval Gate)
+- a task declara `network_isolation: required` ou precisa de rede além dos registros permitidos;
+- instalação/compilação com scripts (4.3);
+- código de origem desconhecida (repositórios baixados, anexos, exemplos da web);
+- servidores (banco de dados, filas) para o projeto gerado;
+- builds de release (12 — Build/Release);
+- teste de código cuja task foi marcada `untrusted_high` pelo Security Agent.
 
-- Pedido: `{acao, risco, justificativa, diff/preview, custo_estimado, reversibilidade}` → tabela `approvals` → notificação pelo Master.
-- Resposta: aprovar/negar, **por ação**, com expiração (padrão 24 h). Aprovação não se generaliza para ações futuras.
-- Sem resposta → a task fica `BLOCKED(approval)` (não consome recursos).
-- Pré-autorizações por projeto (ex.: "pode instalar dependências de pypi.org") são configuração versionada, nunca decisão do agente.
+Sem Docker disponível ou sem RAM para a VM (admissão própria ≥ 3 GB, 05 §4): a task fica `WAITING(resources)` ou `BLOCKED` — **nunca** cai para S1h silenciosamente.
 
-## 9. Logs e auditoria
+## 5. Infraestrutura protegida
 
-- `audit.jsonl`: cada ação R2/R3, aprovação, violação, uso de segredo (só o nome, nunca o valor), troca de provedor pago. Cada linha tem `prev_hash` (cadeia de hashes) para detectar adulteração.
-- Logs nunca contêm segredos (redação) nem conteúdo integral de arquivos do usuário por padrão.
+### 5.1 Lista (`config/policies/protected-paths.yaml`, ela mesma protegida)
 
-## 10. Rollback
+| Grupo | Caminhos |
+| --- | --- |
+| Políticas e limites | `config/policies/**`, `config/resources.yaml`, `config/providers.yaml`, `config/models.yaml`, `config/agents/**` |
+| Código de aplicação de segurança | `src/appfactory/security/**`, `src/appfactory/toolbox/**`, `src/appfactory/core/auth.py`, `src/appfactory/core/stop.py`, `src/appfactory/core/instance.py` |
+| Recursos | `src/appfactory/resources/**` |
+| Orçamento e roteamento com efeito de custo/privacidade | `src/appfactory/routing/budget.py`, `src/appfactory/routing/provider_router.py`, `src/appfactory/routing/model_registry.py` |
+| Checkpoints, logs, recuperação | `src/appfactory/checkpoints/**`, `src/appfactory/logs/**` (inclui `audit.py`, `redaction.py`), `src/appfactory/jobs/recovery.py`, `src/appfactory/jobs/leases.py`, `src/appfactory/jobs/locks.py` |
+| Guardrails e avaliação | `tests/guardrails/**`, `evals/**`, `pytest.ini`, `conftest.py` e `**/conftest.py`, `sitecustomize.py`, `usercustomize.py`, `*.pth` (qualquer nível) |
+| Normativos | `AGENTS.md`, `DECISIONS.md`, `RESOURCE_POLICY.md`, `docs/architecture/**` |
+| Estado versionado | `PROJECT_STATE.md`, `HANDOFF.md`, `TASK_QUEUE.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md`, `TEST_STATUS.md`, `COMMAND_LOG.md`, `.appfactory/job.json`, `.appfactory/checkpoints/**` |
+| Repositório | `.git/**`, `.gitignore`, `.gitattributes` |
+| Diagnóstico humano | `tools/diagnostics/**` |
 
-Ver `02-fluxo-de-tarefa.md` (tabela de rollback). Regra: rollback **nunca** destrói histórico compartilhado; usa `revert`/novo branch. Rollback de configuração da fábrica = voltar ao commit do checkpoint de marco.
+Regra: a configuração do pytest só pode existir em `pytest.ini` (protegido); é proibido `[tool.pytest*]` no `pyproject.toml`.
 
-## 11. Kill switch
+### 5.2 A quem se aplica
 
-`af stop` ou criar o arquivo `.appfactory/STOP` → modo CRITICAL imediato: nenhum despacho novo, pausa cooperativa de tudo, descarga de modelos. Só é removido pelo usuário.
+- **Aplica-se** a todos os agentes da fábrica em execução (runtime) e ao Evolution Agent, sem exceção.
+- **Não impede** sessões de desenvolvimento dirigidas pelo usuário (o próprio usuário ou uma IA trabalhando sob instrução direta dele, conforme `AGENTS.md`), que continuam obrigadas a registrar mudanças em `DECISIONS.md`.
+
+### 5.3 Camadas de aplicação
+
+1. **Toolbox:** nega escrita/renomeação/remoção em caminho protegido (inclusive via symlink/junction).
+2. **ACL:** `afrunner` não tem acesso algum a esses caminhos (§4.2).
+3. **Revisão de diff automática:** todo diff proposto por agente (task ou EP) é verificado por código confiável (`git diff --name-status --find-renames <base>...<branch>`); qualquer arquivo protegido **adicionado, alterado, renomeado, removido ou referenciado por symlink** ⇒ **rejeição automática** (tarefa `BLOCKED(policy_violation)`; EP `REJECTED`).
+4. **Guardrails:** executados por comando fixo e confiável: `python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails` com o ambiente travado da fábrica; o código candidato não controla a configuração nem os plugins.
+5. **Dependências:** EP que altere `pyproject.toml` (dependências) ou `uv.lock` exige [H] com auditoria do Security Agent.
+
+## 6. Filesystem
+
+- Raiz permitida para a fábrica: `D:\Claude\app-factory`. Tudo fora disso = R2/R3.
+- A fábrica não grava em `C:` (exceto temporários do sistema).
+- Remoção: agentes não apagam fora de `.appfactory/jobs/*/tmp` e dos worktrees criados pela própria fábrica; apagar arquivos do usuário = R3.
+
+## 7. Terminal, execução e navegador
+
+- Todo comando passa pelo `CommandPolicy`: executável na allowlist, argumentos checados, `cwd` no escopo, timeout obrigatório, sandbox escolhido pela classe de confiança (§0).
+- Sem `shell=True` por padrão. Pipes/redirecionamentos só em comandos pré-aprovados.
+- Sempre negados sem [H]: `rm -rf`/`Remove-Item -Recurse` fora do escopo, `git push --force`, `git reset --hard` em branch compartilhado, `format`, `diskpart`, `reg`, `bcdedit`, `Set-ExecutionPolicy`, `netsh`, `icacls` fora do fluxo de setup, `schtasks`, criação de serviços/usuários.
+- Navegador: perfil Playwright descartável, separado do Chrome do usuário · allowlist de domínios por job · sem credenciais reais · downloads em quarentena (`.appfactory/jobs/<job>/quarantine/`), nunca executados · conteúdo de páginas/arquivos é **dado, nunca instrução**. O app gerado sob teste roda em S1h/S2.
+
+## 8. Papéis, tokens e API local
+
+| Papel | Token | Pode | Não pode |
+| --- | --- | --- | --- |
+| `user` | `.appfactory/runtime/tokens/user.token` (ACL: só usuário principal) | tudo, inclusive aprovações e liberar STOP — **sempre com confirmação interativa** | — |
+| `runner` | um por tentativa (attempt), escopo = sua task, expira com o lease; entregue ao runner por handle herdado, nunca em arquivo legível por `afrunner` | `/runner/*`, `/llm/generate`, `/tools/*` da própria task, **acionar** STOP | aprovações, liberar STOP, criar/cancelar jobs, ler outras tasks |
+| `ui` (futuro) | igual a `user` sem aprovar/liberar STOP | leitura e controle de jobs | aprovar, liberar STOP |
+| S1h/S2 | **nenhum** | — | falar com a API |
+
+- API só em `127.0.0.1`; valida o cabeçalho `Host` (apenas `127.0.0.1:<porta>`/`localhost:<porta>`), **sem CORS**, rejeita requisições com `Origin` de navegador; token obrigatório em todas as rotas.
+- **Aprovações interativas:** `af approve <APR-id>` mostra ação, risco, preview e custo; o usuário digita um código de confirmação exibido **no console** (uso único, 5 min). A API não aceita aprovação sem esse código, nem por token `runner`/`ui`. Aprovação é por ação, com expiração (24 h), e nunca se generaliza.
+- Sem resposta → task `BLOCKED(approval)` (sem consumir recursos).
+- Pré-autorizações por projeto são configuração versionada e protegida, nunca decisão de agente.
+
+## 9. STOP (kill switch)
+
+| Aspecto | Regra |
+| --- | --- |
+| Estado | Tabela `factory_stop` no SQLite (`active`, `reason`, `set_at`, `set_by`) **e** flag em memória do daemon |
+| Como acionar | `af stop`; `POST /stop` (qualquer papel, inclusive `runner`); criar o arquivo `.appfactory/STOP`; decisão interna (ex.: guardrail violado). Acionar é sempre permitido (direção segura) |
+| Efeito | Persistido **antes** de qualquer outra ação → modo CRITICAL, nenhum despacho, pausa cooperativa, descarga só dos modelos da fábrica |
+| Como liberar | **Somente** `af resume-factory` com token `user` + confirmação interativa. Apagar o arquivo `STOP` **nunca** libera uma parada registrada |
+| Partida do daemon | Carrega `factory_stop` antes de despachar qualquer coisa; se o arquivo existir e a tabela não, registra a parada |
+| Auditoria | Acionar e liberar vão para `audit.jsonl` |
+
+## 10. Logs e auditoria
+
+- `audit.jsonl`: ações R2/R3, aprovações, violações, uso de segredo (só o nome), STOP, troca para provedor pago. Cada linha com `prev_hash` (cadeia de hashes). O arquivo fica em `.appfactory/logs/`, inacessível a `afrunner`.
+- Logs nunca contêm segredos nem conteúdo integral de arquivos do usuário por padrão.
+
+## 11. Rollback
+
+Ver `02-fluxo-de-tarefa.md` (tabela de rollback). Rollback **nunca** destrói histórico compartilhado; usa `revert`/novo branch. Rollback da fábrica = voltar ao commit do checkpoint de marco.
+
+## 12. Riscos residuais aceitos (documentados)
+
+S1h sem isolamento de rede (KI-0015) · viabilidade de logon secundário + Job Object a provar (KI-0014) · ACL padrão de `D:\` a validar no setup (KI-0016) · processos do usuário principal continuam podendo ler o cofre do próprio usuário (por isso código não confiável nunca roda como ele).

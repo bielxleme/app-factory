@@ -37,7 +37,7 @@
                                      | Toolbox (fs/shell/git/web/browser/db) + politica
                                      v
                      +--------------------------------+     +-----------------------------+
-                     | workspaces/<projeto> (git)     |     | Sandbox S1 subprocess       |
+                     | workspaces/<projeto> (git)     |     | Sandbox S1h (afrunner)      |
                      | _worktrees/<projeto>/<task>    |     | Sandbox S2 Docker (demanda) |
                      +--------------------------------+     +-----------------------------+
 ```
@@ -141,8 +141,9 @@
                                                                 v
  +---------------------------------------------------------------------------------+
  | PROVIDER ROUTER                                                                 |
- |  filtro: capacidade | enabled | privacidade | CUSTO (pago=0 sem [H]) | saude    |
- |          | admissao GPU (local)                                                 |
+ |  filtro: classe (so LOCAL_VERIFICADO e local) | capacidade | enabled            |
+ |          privacidade | CUSTO (pago=0 sem [H]; sem cost_class = pago)            |
+ |          saude | admissao GPU (local)                                           |
  |  pontua: tier .40 + custo .25 + latencia .15 + cota .10 + carga local .10       |
  +------+--------------------------+-----------------------------+-----------------+
         |                          |                             |
@@ -175,11 +176,14 @@
                  +---------+----------+           | gatilhos: pausa, BLOCKED,    |
                            |                      | fim de job, troca de provedor|
              retomada      |                      | fim de sessao, a cada 30 min |
-   crash/reboot -> recovery: lease vencido ->     +--------------+---------------+
-   ultimo checkpoint completo -> QUEUED(resume)                  v
-                                                  HANDOFF.md / PROJECT_STATE.md /
-                                                  TASK_QUEUE.md / jobs/<job>/handoff.md
-                                                  -> outra IA continua via AGENTS.md
+   crash/reboot -> recovery: vida verificada ->   +--------------+---------------+
+   (PID+criacao) -> ultimo checkpoint completo                   v
+   -> QUEUED(resume)                              OPERACIONAL (Git ignora):
+                                                  .appfactory/runtime/handoff/,
+                                                  runtime/job.json, jobs/<job>/handoff.md
+                                                  PROJETO: workspaces/<p>/.appfactory/
+   VERSIONADO (fabrica): HANDOFF.md, PROJECT_STATE.md, TASK_QUEUE.md
+   -> escritos so pelas sessoes de desenvolvimento (AGENTS.md), nunca pelo daemon
 ```
 
 ## 7. Execução paralela
@@ -194,7 +198,8 @@
  af/J/T2 (worktree)  o--o------------o---------+  writes: src/ui/**
  af/J/T3 (worktree)       (espera lock de "package.json" / hot file) o--o--+
 
- Locks:   T1 {src/api/**}   T2 {src/ui/**}   T3 {package.json, uv.lock}  -> disjuntos ok
+ Locks (POR PROJETO): T1 {src/api/**} T2 {src/ui/**} T3 {package.json, uv.lock} -> disjuntos ok
+ Regra: 1 job RUNNING por projeto; integracao em _worktrees/<p>/_integration-<job>
  GPU:     [T1 call]..[T2 call]..[T1 call]..   (1 lease; chamadas intercaladas)
  Slots:   FOREGROUND = 2 runners  -> T3 espera slot ou lock
  Conflito no merge -> Coder resolvedor (1x) -> senao BLOCKED(conflict)
@@ -233,11 +238,61 @@
                     v     v           v
               +------------------------------+
               | journal intent -> [CP] ->    |
-              | executa em sandbox S0/S1/S2  |
+              | executa em S0 / S1h / S2     |
               | env limpo, segredos so no    |
               | Provider Router, timeout     |
               +--------------+---------------+
                              v
               journal result -> audit.jsonl (hash encadeado) -> logs com redacao
               falha/efeito indesejado -> ROLLBACK (revert / branch do checkpoint)
+```
+
+## 9. Execução de código não confiável e papéis (revisão 1.1)
+
+```
+ USUARIO PRINCIPAL (confiavel)                         USUARIO "afrunner" (nao confiavel)
+ +-----------------------------------------+           +-----------------------------------+
+ | afd (daemon)                            |           | S1h: testes, scripts, app gerado  |
+ |   Job Object raiz (KILL_ON_JOB_CLOSE)   |  cria     |  Job Object por task:             |
+ |   STOP: SQLite + memoria                |---------->|   memoria 1,5 GB FG / 3 GB BG     |
+ |   Credential Manager (segredos)         | suspenso  |   CPU 50% FG / 80% BG, 32 procs   |
+ |   tokens: user (so CLI) / runner        | + ACL     |   sem clipboard/desktop           |
+ | agent-runner (token runner da task)     |           |  ACL: Modify SO no worktree       |
+ |   chama /llm e /tools                   |           |  Deny herdado no resto da fabrica |
+ +-------------------+---------------------+           |  sem token, sem segredos          |
+                     |                                 |  rede NAO isolada (KI-0015)       |
+                     | isolar rede / deps com scripts  +-----------------------------------+
+                     | / origem desconhecida / banco
+                     v
+            +-------------------------------+
+            | S2 Docker: --network none,    |     aprovacoes e liberar STOP:
+            | so worktree montado, sem root |     somente "af approve"/"af resume-factory"
+            | admissao >= reserva + 3 GB    |     com token user + codigo digitado no console
+            +-------------------------------+
+```
+
+## 10. Ciclo de vida do daemon (revisão 1.1)
+
+```
+ logon do usuario --(Agendador, so usuario conectado, +60 s)--> af daemon start
+                                                                     |
+                                           mutex Local\AppFactory-afd-<hash>
+                                                  |                  |
+                                           ja existe              obtido
+                                                  |                  v
+                                        informa PID e sai    recuperacao (07 §3)
+                                                                     |
+                                                                     v
+               +------------------------ operacao normal -------------------------+
+               | heartbeat 15 s / lease 60 s em TEMPO ATIVO (sem suspensao)       |
+               | lease vencido -> PID + criacao + Job Object vivos?               |
+               |    sim -> pede status; mudo 120 s -> encerra o job -> nova tent. |
+               |    nao -> interrupted -> QUEUED(resume_from)                     |
+               +--------------+---------------------------------+-----------------+
+                              |                                 |
+                retorno do sono (gap entre relogios)       daemon morre
+                              v                                 v
+                carencia 120 s: nenhum lease vence,    Job Object raiz fecha:
+                nenhuma admissao, 2 amostras novas     todos os filhos morrem;
+                                                       runner: dead-man 45 s
 ```

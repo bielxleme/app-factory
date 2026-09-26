@@ -1,6 +1,14 @@
 # 04 — Execução paralela (C)
 
+**Revisão 1.1 (2026-09-26):** regra de `writes`, locks por projeto, 1 job RUNNING por projeto e worktree de integração definidos (N7, D-0036); limiares de CPU passam a vir só de `05-resource-manager.md` (D-0038).
+
 Diagrama: `13-diagramas.md` §7.
+
+## 0. Regra de concorrência entre jobs (Fase 2)
+
+- **No máximo 1 job `RUNNING` por projeto** (`workspaces/<p>`). Outros jobs do mesmo projeto ficam `QUEUED` (motivo `project_busy`).
+- **Jobs de projetos diferentes podem rodar em paralelo**, dentro dos limites do Resource Manager.
+- Preparação para o futuro: locks e worktrees já são **por projeto** (§3); liberar mais de um job por projeto exigirá apenas mudar `max_running_jobs_per_project` (hoje 1, protegido) depois de uma decisão registrada e de testes de conflito entre jobs.
 
 ## 1. Quando paralelizar
 
@@ -19,22 +27,27 @@ Diagrama: `13-diagramas.md` §7.
 
 ## 3. Evitar dois agentes no mesmo arquivo
 
-1. O Planner declara `writes` (globs) por task. Task sem `writes` = somente leitura.
-2. Antes de iniciar, o Job Manager adquire **locks de glob** na tabela `locks` (transação SQLite). Há conflito quando dois globs se sobrepõem (verificado com correspondência de caminhos normalizados, sem diferenciar maiúsculas de minúsculas no Windows).
-3. Conflito → a segunda task fica `WAITING(lock)`.
-4. O Toolbox **impõe** o `writes`: escrita fora do conjunto é negada e gera `task.scope_violation` (o agente pede replanejamento).
-5. Locks têm lease atrelado ao da task: se o runner morrer, o lock é liberado quando o lease vence.
+1. O Planner declara `writes` por task usando **somente** duas formas: (a) **arquivo explícito** (`src/api/health.py`) ou (b) **prefixo de pasta** `dir/**` (`src/ui/**`). Curingas arbitrários (`*.py`, `src/**/test_*.py`, `?`) são **proibidos**. Task sem `writes` = somente leitura.
+2. Normalização: caminho relativo à raiz do projeto, separador `/`, sem `.`/`..`, **sem diferenciar maiúsculas de minúsculas** (Windows); symlinks/junctions resolvidos e recusados se saírem do projeto.
+3. Sobreposição (decidível por comparação de prefixo): arquivo×arquivo = iguais; arquivo×`d/**` = o arquivo começa com `d/`; `d1/**`×`d2/**` = um prefixo contém o outro.
+4. Locks são **por projeto**: tabela `locks(project, path_spec, task_id, acquired_at)`. Antes de iniciar, o Job Manager adquire **todos** os `writes` da task numa única transação (tudo ou nada → sem deadlock).
+5. Conflito → a task fica `WAITING(lock)`.
+6. O Toolbox **impõe** o `writes`: escrita fora do conjunto é negada e gera `task.scope_violation` (o agente pede replanejamento). Em S1h, a ACL só concede escrita no worktree da própria task (08 §4.2).
+7. Locks seguem a vida da task: são liberados quando a tentativa termina ou é declarada `interrupted` após a verificação de vida (15 §5) — nunca apenas porque um relógio passou.
 
 ## 4. Branches e worktrees
 
 ```
 workspaces/<projeto>/                 repo do projeto (branch main)
   branch af/<job>/integration         criado a partir de main no início do job
+workspaces/_worktrees/<projeto>/_integration-<job>/
+  branch af/<job>/integration         worktree de integração (merges, QA de integração, Security, Build)
 workspaces/_worktrees/<projeto>/<task>/
   branch af/<job>/<task>              criado a partir de af/<job>/integration
 ```
 
-- 1 worktree por task de escrita; tasks somente leitura usam o worktree de integração em modo leitura.
+- O checkout principal `workspaces/<projeto>/` permanece em `main` e **não** é usado para trabalho de agentes.
+- 1 worktree por task de escrita; tasks somente leitura leem o worktree de integração (sem permissão de escrita).
 - Worktrees são removidos após o merge da task; branches ficam até o job terminar (e mais 7 dias).
 - Commits de agentes: autor `App Factory Agent <agent@appfactory.local>` + trailer `AF-Task: <task-id>`; o usuário continua autor dos commits que ele mesmo fizer.
 
@@ -68,9 +81,9 @@ workspaces/_worktrees/<projeto>/<task>/
 
 ```
 slots_ram   = floor( (ram_disponivel_gb - reserva_ram_gb[modo]) / 0.4 )   # ~0,4 GB por runner + ferramentas
-slots_cpu   = 0 se cpu_media_60s > 85%  senão  (1 se > 70%  senão  ilimitado)
-max_agentes = min( limite_modo[modo], slots_ram, slots_cpu )
-admitir_GPU = lease_livre E vram_livre_mib - vram_estimada(modelo, ctx) >= reserva_vram_mib[modo]
+# CPU: limiares canônicos em 05 §4 (> 85%: nenhuma nova admissão; > 70%: no máx. 1 admissão por minuto)
+max_agentes = min( limite_modo[modo], slots_ram )     # e respeitando a regra de CPU acima
+admitir_GPU = lease_livre E vram_estimada(modelo, ctx) <= vram_disponivel_fabrica   # definida em 05 §1.1 (já desconta reserva e margem)
 admitir_pesado = pesados_ativos < limite_pesado[modo] E ram_disponivel_gb >= reserva_ram_gb[modo] + 1.0
 ```
 

@@ -1,6 +1,7 @@
 # Arquitetura da App Factory — Índice
 
-**Versão:** 1.0 (Fase 1) · **Data:** 2026-09-26 · **Status:** proposta aprovável (normativa após o commit)
+**Versão:** 1.1 (Fase 1.1 — revisão e correção documental) · **Data:** 2026-09-26 · **Status:** v1.0 normativa desde o commit `4082457`; revisão 1.1 pendente de commit
+**Revisão 1.1:** corrige os achados N1–N8 da revisão técnica (segurança do código não confiável, infraestrutura protegida, daemon, GPU no WDDM, modelos Ollama, estado operacional, contradições). Decisões D-0026 a D-0039.
 **Base:** hardware medido em 2026-09-26 16:17 -03:00 (`tools/diagnostics/measure-hardware.ps1`).
 
 Esta pasta é a **especificação normativa** da App Factory. Qualquer IA que for implementar deve segui-la. Mudanças exigem registro em `DECISIONS.md`.
@@ -20,7 +21,8 @@ Esta pasta é a **especificação normativa** da App Factory. Qualquer IA que fo
 | [10-diretorios.md](10-diretorios.md) | Estrutura completa de diretórios | I |
 | [11-tecnologias.md](11-tecnologias.md) | Tecnologias, alternativas, custos, riscos | J |
 | [12-contratos.md](12-contratos.md) | Esquemas de dados, eventos, interfaces entre componentes | — |
-| [13-diagramas.md](13-diagramas.md) | Os 8 diagramas ASCII obrigatórios | K |
+| [13-diagramas.md](13-diagramas.md) | Os 8 diagramas ASCII obrigatórios + 2 da revisão 1.1 | K |
 | [14-plano-fase-2.md](14-plano-fase-2.md) | Proposta de fatiamento da implementação (não executar sem instrução) | — |
+| [15-daemon.md](15-daemon.md) | Instância única, início no logon, leases em tempo ativo, sono, Job Objects, órfãos (revisão 1.1) | N3 |
 
 Convenções de ID: `JOB-YYYYMMDD-NNNN`, `TASK-<job>-NN`, `CP-NNNN`, `EP-NNNN` (proposta de evolução), `D-NNNN` (decisão), `KI-NNNN` (issue).

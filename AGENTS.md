@@ -17,7 +17,7 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 5. `KNOWN_ISSUES.md` e `TEST_STATUS.md`
 6. `DECISIONS.md` e `RESOURCE_POLICY.md` antes de decisões técnicas
 7. `.appfactory/job.json` e o checkpoint mais recente em `.appfactory/checkpoints/`
-8. `docs/architecture/README.md` — especificação **normativa** da arquitetura (antes de implementar qualquer coisa)
+8. `docs/architecture/README.md` — especificação **normativa** da arquitetura (antes de implementar qualquer coisa), em especial `08-seguranca.md` e `15-daemon.md`
 
 ## 3. Regras de trabalho
 
@@ -33,6 +33,9 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 10. Respeite `RESOURCE_POLICY.md` (medido: RAM 23,7 GB com ~5 GB livres no uso normal; VRAM 6141 MiB; C: com pouco espaço — grave só em D:).
 11. Não mude a arquitetura sem registrar a revisão em `DECISIONS.md` e atualizar `docs/architecture/`.
 12. Nunca gaste dinheiro (provedores pagos) sem aprovação explícita do usuário.
+13. Código gerado por agentes é **não confiável**: nunca o execute como o usuário principal (ver `docs/architecture/08-seguranca.md` §0).
+14. **Estado versionado × operacional:** os arquivos desta pasta raiz, `DECISIONS.md` etc. são o estado **versionado** do desenvolvimento da fábrica e são mantidos pelas sessões de desenvolvimento dirigidas pelo usuário. O estado **operacional** da execução de jobs fica em `.appfactory/runtime/**` e `.appfactory/state/**` (ignorados pelo Git) e nunca deve ser commitado.
+15. Os caminhos protegidos (`08-seguranca.md` §5.1) valem para os agentes em execução da App Factory e para o Evolution Agent; sessões de desenvolvimento dirigidas pelo usuário podem alterá-los, sempre registrando em `DECISIONS.md`.
 
 ## 4. Atualização dos arquivos de estado (ao fim de cada sessão/tarefa)
 
@@ -46,7 +49,7 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 | `KNOWN_ISSUES.md` | Bug, limitação ou problema encontrado/resolvido |
 | `TEST_STATUS.md` | Todo teste/verificação executado, com resultado real |
 | `COMMAND_LOG.md` | Comandos relevantes executados |
-| `.appfactory/job.json` | Início/fim/mudança de estado de job |
+| `.appfactory/job.json` | **Somente em marcos** (fim de fase/revisão). O espelho de cada transição de job fica em `.appfactory/runtime/job.json` (ignorado) |
 | `.appfactory/checkpoints/` | Ao validar um marco (fim de fase, entrega relevante) |
 
 ## 5. Convenções
