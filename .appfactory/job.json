@@ -5,19 +5,18 @@
   "project": "app-factory",
   "phase": "2.2",
   "phase_name": "Guardrails e segurança de execução",
-  "status": "phase_ready_for_commit",
-  "status_detail": "Fase 2.2 implementada, validada no Windows real (CPython 3.13.14: uv run pytest 157 passed, 7 skipped, 0 failed; guardrails 21 passed, 7 skipped) e documentação consolidada (D-0048 a D-0057). Pronta para commit; base 683b9e2; ainda NÃO commitada.",
+  "status": "phase_completed",
+  "status_detail": "Fase 2.2 (Guardrails e segurança de execução) implementada e validada: commit 6fb983c; Windows real (CPython 3.13.14) uv run pytest 157 passed, 7 skipped, 0 failed; guardrails 21 passed, 7 skipped. Nenhuma implementação em andamento.",
   "current_job": null,
   "implementation_in_progress": false,
   "initialized_at": "2026-09-26T13:13:26-03:00",
-  "updated_at": "2026-09-27T04:45:00-03:00",
-  "last_commit": "683b9e2",
+  "updated_at": "2026-09-27T04:50:00-03:00",
+  "last_commit": "6fb983c161af6aa41b895ee65ded0ddbc216a577",
   "last_checkpoint": "CP-0005",
   "last_checkpoint_file": ".appfactory/checkpoints/CP-0005-fase2-2.json",
   "next_phase": {
     "id": "2.3",
     "name": "Resource Manager",
-    "requires_user_instruction": true,
-    "blocked_by": "commit da Fase 2.2 e validação pós-commit do CP-0005"
+    "requires_user_instruction": true
   }
 }

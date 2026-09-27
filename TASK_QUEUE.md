@@ -27,7 +27,7 @@ Legenda: `[x]` concluída e verificada · `[~]` em andamento · `[ ]` pendente �
 - [ ] Fatia 2.9+ — `af daemon install-autostart`
 - [ ] Futuro — migrar os modelos do Ollama para D: (D-0034)
 
-## FASE 2.2 — Guardrails e segurança de execução — IMPLEMENTADA · VALIDADA NO WINDOWS · PRONTA PARA COMMIT
+## FASE 2.2 — Guardrails e segurança de execução — CONCLUÍDA E VALIDADA (CP-0005, `6fb983c`)
 
 - [x] Especificação executável: `docs/specs/fase-2.2-guardrails-e-seguranca.md` (escopo, componentes, APIs, matriz G22-01…54, critérios AC-01…14, pendências P-01…P-15, ordem)
 - [x] Decisões bloqueantes aprovadas pelo usuário (2026-09-27): P-01→D-0048, P-02→D-0049, P-03→D-0050, P-05→D-0051, P-06→D-0052, P-07→D-0053, P-15→D-0054
@@ -38,6 +38,7 @@ Legenda: `[x]` concluída e verificada · `[~]` em andamento · `[ ]` pendente �
 - [x] Testes em Linux: 164 OK (Python 3.10, 3.11, 3.12, 3.13; 10 pulados com motivo)
 - [x] **Usuário (Windows):** `uv run pytest` — 1ª execução: 156 passed, 7 skipped, 1 failed (nomes 8.3) → corrigido; revalidação: **157 passed, 7 skipped, 0 failed** (CPython 3.13.14)
 - [x] **Usuário (Windows):** `uv run python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails` — **21 passed, 7 skipped, 0 failed**
-- [ ] **Usuário:** commit `feat: add guardrails and execution security (Phase 2.2)` e push; depois validação pós-commit do CP-0005
+- [x] **Usuário:** commit `6fb983c` `feat: add guardrails and execution security (Phase 2.2)` e push; validação pós-commit do CP-0005 feita
+- [ ] **Usuário:** commit da consolidação documental `chore: validate Phase 2.2 checkpoint`
 - [x] P-11 decidida em D-0056 (fail-closed na 2.2; STOP por falha de integridade obrigatório na 2.4) e P-08 decidida em D-0057 (autorização com escopo limitado)
 - [ ] Decidir as pendências não bloqueantes restantes (P-04, P-09, P-10, P-12, P-13, P-14); escolhas provisórias em D-0055

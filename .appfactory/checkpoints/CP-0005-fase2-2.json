@@ -6,15 +6,20 @@
   "created_at": "2026-09-27T01:05:00-03:00",
   "created_by": "Claude (Cowork)",
   "phase": "2.2",
-  "state": "phase_2_2_ready_for_commit",
+  "state": "phase_2_2_validated",
   "git": {
     "branch": "main",
     "parent_commit": "683b9e2",
-    "validated_commit": null,
+    "validated_commit": "6fb983c",
     "expected_commit_message": "feat: add guardrails and execution security (Phase 2.2)",
     "remote": "https://github.com/bielxleme/app-factory.git",
-    "note": "Implementação validada no Windows sobre a base 683b9e2 e documentação consolidada (D-0048 a D-0057); pronta para commit, ainda NÃO commitada. validated_commit será preenchido na validação pós-commit (D-0011); só então o estado passa a phase_2_2_validated.",
-    "validation_base_commit": "683b9e2"
+    "note": "validated_commit preenchido na validação pós-commit (D-0011). O commit que contém esta atualização é o seguinte. Validação técnica no Windows feita sobre a base 683b9e2 com o mesmo conteúdo commitado em 6fb983c.",
+    "validation_base_commit": "683b9e2",
+    "validated_commit_full": "6fb983c161af6aa41b895ee65ded0ddbc216a577",
+    "validated_commit_message": "feat: add guardrails and execution security (Phase 2.2)",
+    "validated_commit_author": "Gabriel Ximenes",
+    "validated_commit_date": "2026-09-27T04:45:31-03:00",
+    "remote_main_verified": "6fb983c161af6aa41b895ee65ded0ddbc216a577"
   },
   "implemented": [
     "config/policies/protected-paths.yaml",
@@ -102,7 +107,7 @@
     "agentes e Evolution (2.8+)",
     "git.py/web.py/browser.py/db.py do Toolbox (2.8)"
   ],
-  "next_step": "Usuário: commit `feat: add guardrails and execution security (Phase 2.2)` + push; depois validação pós-commit (preencher validated_commit).",
+  "next_step": "Fase 2.3 (Resource Manager) — somente com nova instrução do usuário.",
   "validated_at_windows": "2026-09-27T04:35:00-03:00",
   "acceptance_criteria": {
     "AC-01": "OK (Windows)",
@@ -117,5 +122,15 @@
   "obligations_for_later_slices": [
     "2.4 (D-0056): verificar a integridade dos guardrails antes de qualquer execução real e acionar o STOP da fábrica em caso de falha",
     "fatia da API/daemon (D-0057): aplicação operacional da autorização (tokens por papel, user.token com ACL)"
-  ]
+  ],
+  "validated_at": "2026-09-27T04:50:00-03:00",
+  "post_commit_validation": {
+    "working_tree": "limpo; main sincronizado com origin/main",
+    "git_diff_check_commit": "sem problemas (git diff --check 683b9e2 6fb983c)",
+    "remote": "git ls-remote: refs/heads/main = 6fb983c161af6aa41b895ee65ded0ddbc216a577",
+    "commit_stats": "60 arquivos, 4783 inserções, 65 remoções",
+    "tracked_runtime_artifacts": "nenhum",
+    "revalidation_vm_python_3_10_on_6fb983c": "164 OK, 10 pulados (unittest)",
+    "windows_results": "157 passed, 7 skipped, 0 failed; guardrails 21 passed, 7 skipped (validação real do operador, válida para 6fb983c)"
+  }
 }

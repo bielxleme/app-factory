@@ -1,9 +1,9 @@
 # HANDOFF.md — Ponto de parada
 
-**Atualizado em:** 2026-09-27 04:45 -03:00 · **Por:** Claude (Cowork)
+**Atualizado em:** 2026-09-27 04:50 -03:00 · **Por:** Claude (Cowork)
 
 ## Situação
-**Fase 2.2 (Guardrails e segurança de execução) implementada e validada no Windows real.** Base: `683b9e2`. **Nada foi commitado.** Documentação consolidada (D-0048 a D-0057); **CP-0005 pronto para commit** (`phase_2_2_ready_for_commit`, `validated_commit: null`). Falta: commit/push e validação pós-commit do CP-0005 (D-0011).
+**Fase 2.2 (Guardrails e segurança de execução) concluída e validada.** Commit `6fb983c` (= `origin/main`); **CP-0005 validado** (`phase_2_2_validated`, `validated_commit: 6fb983c`). Falta só o commit desta consolidação documental.
 
 ## O que foi implementado
 - `config/policies/protected-paths.yaml` e `commands.yaml` (subconjunto JSON, D-0049).
@@ -26,11 +26,10 @@
 ```powershell
 git status
 git add .
-git commit -m "feat: add guardrails and execution security (Phase 2.2)"
+git commit -m "chore: validate Phase 2.2 checkpoint"
 git push
 ```
-Depois: validação pós-commit (preencher `validated_commit` do CP-0005).
 
 ## Regras para a próxima IA
 - Ler `AGENTS.md`, `DECISIONS.md` (D-0048 a D-0057), a especificação da 2.2 e `docs/runbooks/seguranca.md`.
-- Não avançar para a 2.3 sem o commit da 2.2, a validação pós-commit do CP-0005 e nova instrução do usuário.
+- Não iniciar a 2.3 (Resource Manager) sem nova instrução do usuário. Obrigações já registradas para a 2.4 (D-0056) e para a fatia da API/daemon (D-0057) estão na `TASK_QUEUE.md`.

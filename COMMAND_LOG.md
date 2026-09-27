@@ -208,3 +208,20 @@ git add .
 git commit -m "feat: add guardrails and execution security (Phase 2.2)"
 git push
 ```
+
+## 2026-09-27 — Validação pós-commit da Fase 2.2
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| PS (usuário) | `git add .` ; `git commit -m "feat: add guardrails and execution security (Phase 2.2)"` ; `git push` | `6fb983c` (informado pelo usuário; verificado abaixo) |
+| VM | `git status -sb` ; `git log -3` ; `git show --stat HEAD` ; `git diff --check HEAD~1 HEAD` ; `git status --porcelain` ; `git ls-files` | limpo, sincronizado, `6fb983c`, 60 arquivos, sem problemas |
+| Nuvem | `git ls-remote https://github.com/bielxleme/app-factory refs/heads/main` | `6fb983c161af6aa41b895ee65ded0ddbc216a577` |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` | 164 OK (10 pulados) |
+| VM | `python3 - <<'EOF' … EOF` (CP-0005, job.json, PROJECT_STATE, TASK_QUEUE, HANDOFF, TEST_STATUS, CHANGELOG, COMMAND_LOG) | atualizados; nenhum código/teste/configuração alterado |
+
+### Commit da consolidação (usuário, PowerShell) — PENDENTE
+```powershell
+git add .
+git commit -m "chore: validate Phase 2.2 checkpoint"
+git push
+```

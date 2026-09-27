@@ -4,7 +4,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
-### Fase 2.2 — Guardrails e segurança de execução (2026-09-27) — implementada e validada no Windows (157 passed, 7 skipped; guardrails 21 passed, 7 skipped), pendente de commit
+### Fase 2.2 — Validação pós-commit (2026-09-27) — pendente de commit
+
+#### Alterado
+- `CP-0005-fase2-2.json`: `validated_commit` = `6fb983c`, estado `phase_2_2_validated`.
+- `TEST_STATUS.md` (V2.2-07 a V2.2-12), `PROJECT_STATE.md`, `HANDOFF.md`, `TASK_QUEUE.md`, `COMMAND_LOG.md`, `.appfactory/job.json`.
+
+### Fase 2.2 — Guardrails e segurança de execução (2026-09-27) — commit `6fb983c` (validado no Windows: 157 passed, 7 skipped; guardrails 21 passed, 7 skipped)
 
 #### Adicionado
 - `config/policies/protected-paths.yaml` e `config/policies/commands.yaml` (subconjunto JSON, D-0049).

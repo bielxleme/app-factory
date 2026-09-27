@@ -4,15 +4,15 @@
 | --- | --- |
 | Projeto | App Factory |
 | Inicializado em | 2026-09-26 13:13:26 -03:00 (`git init`) |
-| Último commit | `683b9e2` — `docs: approve Phase 2.2 blocking decisions` (= `origin/main`); implementação da 2.2 **não commitada** |
-| Checkpoints | `CP-0001` (Fase 0) · `CP-0002` (Fase 1, `4082457`) · `CP-0003` (Fase 1.1, `40d4d79`) · `CP-0004` (Fase 2.1, **validado em `4373c65`**) · `CP-0005` (Fase 2.2, **pronta para commit** — `phase_2_2_ready_for_commit`; validação pós-commit pendente) |
+| Último commit | `6fb983c` — `feat: add guardrails and execution security (Phase 2.2)` (= `origin/main`) |
+| Checkpoints | `CP-0001` (Fase 0) · `CP-0002` (Fase 1, `4082457`) · `CP-0003` (Fase 1.1, `40d4d79`) · `CP-0004` (Fase 2.1, **validado em `4373c65`**) · `CP-0005` (Fase 2.2, **validado em `6fb983c`**) |
 | Fase atual | **Fase 2.2 — Guardrails e segurança de execução** |
-| Status da fase | **IMPLEMENTADA, VALIDADA NO WINDOWS E PRONTA PARA COMMIT** (D-0048 a D-0057) sobre a base `683b9e2`. Falta: revisão, commit/push e validação pós-commit do CP-0005 (D-0011) |
+| Status da fase | **CONCLUÍDA E VALIDADA** (D-0048 a D-0057) — commit `6fb983c`; CP-0005 `phase_2_2_validated` |
 | Fase anterior | Fase 2.1 — Fundação: Job Manager — **concluída e validada** (CP-0004) |
 | Job Manager | **Implementado e validado** (`src/appfactory/`, somente biblioteca padrão) |
 | Testes | 2.1: 58 no Windows (validados). **2.2: 164 testes (58 da 2.1 + 106 novos) OK em Linux, Python 3.10–3.13 (`unittest`; 10 pulados: 7 guardrails `pending`, 2 que exigem pytest, 1 só-Windows). **Windows real (CPython 3.13.14): `uv run pytest` 157 passed, 7 skipped, 0 failed; guardrails 21 passed, 7 skipped** (correção 8.3 validada).** |
-| Próximo estágio | Revisão → commit/push (usuário) → validação pós-commit (CP-0005 `validated_commit`). P-11 e P-08 decididas (D-0056, D-0057); pendências não bloqueantes P-04, P-09, P-10, P-12, P-13, P-14 seguem abertas (escolhas provisórias em D-0055) |
-| Última atualização | 2026-09-27 04:45 -03:00 |
+| Próximo estágio | Commit desta consolidação (`chore: validate Phase 2.2 checkpoint`); depois Fase 2.3 (Resource Manager) — só com nova instrução. P-11 e P-08 decididas (D-0056, D-0057); pendências não bloqueantes P-04, P-09, P-10, P-12, P-13, P-14 seguem abertas (escolhas provisórias em D-0055) |
+| Última atualização | 2026-09-27 04:50 -03:00 |
 
 ## Fase 2.2 — implementação
 
@@ -27,7 +27,7 @@
 - [x] CLI `af guard`, `af audit`, `af guardrails`; manifesto protegido dos guardrails (D-0048)
 - [x] Testes G22-01…G22-54 e critérios AC em Linux (3.10–3.13)
 - [x] **Usuário:** `uv run pytest` (157 passed, 7 skipped, 0 failed) e o comando fixo dos guardrails (21 passed, 7 skipped) no Windows, CPython 3.13.14
-- [ ] **Usuário:** commit e push
+- [x] **Usuário:** commit e push — `6fb983c` (validado pós-commit; CP-0005)
 
 ## Fase 2.1 — critérios
 

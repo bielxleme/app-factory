@@ -168,3 +168,14 @@ Ambiente: **Windows real** do usuário, `D:\Claude\app-factory`, `uv run` com **
 | V2.2-04 | `git diff --check` | Windows | **sem erro**. Único aviso: `warning: in the working copy of 'tools/diagnostics/measure-hardware.ps1', LF will be replaced by CRLF the next time Git touches it` — normalização de final de linha; arquivo não alterado pela 2.2 (`.gitattributes` define `*.ps1 eol=crlf` e a cópia de trabalho está em LF) |
 | V2.2-05 | Critérios AC-01 e AC-02 (antes PENDENTES em T2.2-16) | Windows | **OK** |
 | V2.2-06 | `git diff --check` · `git status --short` após esta consolidação documental | VM | ver `COMMAND_LOG.md`; nenhuma alteração de código, teste ou configuração |
+
+## Validação pós-commit da Fase 2.2 (2026-09-27) — commit `6fb983c`
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V2.2-07 | `git status -sb` | VM | `## main...origin/main`, working tree limpo |
+| V2.2-08 | `git log -3` | VM | `6fb983c feat: add guardrails and execution security (Phase 2.2)` (Gabriel Ximenes, 2026-09-27T04:45:31-03:00; 60 arquivos, +4783/−65) sobre `683b9e2` |
+| V2.2-09 | `git ls-remote https://github.com/bielxleme/app-factory` | Nuvem | `refs/heads/main` = `6fb983c161af6aa41b895ee65ded0ddbc216a577` (sincronizado) |
+| V2.2-10 | `git diff --check 683b9e2 6fb983c` | VM | sem problemas |
+| V2.2-11 | Conteúdo do commit | VM | arquivos da 2.2 rastreados (ex.: `security/paths.py` com a correção 8.3, `core/auth.py`, `MANIFEST.json`, `protected-paths.yaml`, CP-0005, runbook); nenhum artefato de runtime rastreado |
+| V2.2-12 | `PYTHONPATH=src python3 -m unittest discover -s tests -t .` no commit `6fb983c` | VM (Python 3.10.12) | **Ran 164 tests — OK** (10 pulados). A validação real no Windows (V2.2-01/02: 157 passed, 7 skipped; guardrails 21 passed, 7 skipped) foi feita sobre o mesmo conteúdo, depois commitado em `6fb983c` |
