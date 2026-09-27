@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "description": "CommandPolicy (08-seguranca.md §3, §4.3, §7; 05 §6). Subconjunto JSON do YAML 1.2, sem comentários (D-0049). Este arquivo é protegido (config/**).",
+  "allow": ["python", "uv", "pytest", "ruff", "node", "npm", "npx", "git"],
+  "installers_s2_only": ["yarn", "pnpm"],
+  "shell_interpreters": ["cmd", "powershell", "pwsh", "bash", "sh", "zsh", "dash", "wsl", "wscript", "cscript", "mshta"],
+  "denied_executables": ["format", "diskpart", "reg", "bcdedit", "set-executionpolicy", "netsh", "icacls", "cacls", "takeown", "schtasks", "sc", "net", "net1", "new-localuser", "new-service", "runas", "remove-item", "rm", "rmdir", "rd", "del", "erase", "shutdown", "wmic", "vssadmin", "cipher"],
+  "git_allowed_subcommands": ["status", "diff", "add", "commit", "log", "show"],
+  "git_r3_subcommands": ["push", "reset", "clean", "rebase", "filter-branch", "filter-repo", "update-ref", "gc", "prune", "reflog", "config", "remote", "submodule", "worktree", "checkout", "switch", "branch", "tag", "merge"],
+  "timeouts_max_s": {"shell": 300, "script": 600, "tests": 900, "build": 1800, "install": 1800},
+  "preauthorized_r2": []
+}

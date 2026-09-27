@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "note": "D-0048: guardrails de componentes inexistentes ficam pending com fatia e módulo; pending nunca significa aprovação; o Evolution só pode ser habilitado com I1-I7 todas active. Arquivo protegido (tests/guardrails/**). Subconjunto JSON (D-0049).",
+  "invariants": {
+    "I1": {"file": "test_logging_invariants.py", "checks": {
+      "I1.events_append_only": {"status": "active", "what": "eventos de ciclo de vida gravados na mesma transação e imutáveis"},
+      "I1.audit_chain": {"status": "active", "what": "audit.jsonl com cadeia de hashes íntegra e adulteração detectada"},
+      "I1.stop_audited": {"status": "active", "what": "acionar e liberar o STOP vão para a auditoria"}
+    }},
+    "I2": {"file": "test_checkpoint_invariants.py", "checks": {
+      "I2.step_checkpoints": {"status": "active", "what": "checkpoints de passo criados, imutáveis e restauráveis"},
+      "I2.task_milestone_checkpoints": {"status": "pending", "slice": "2.7", "module": "appfactory.checkpoints.snapshot", "what": "checkpoints de task e de marco"}
+    }},
+    "I3": {"file": "test_rollback_invariants.py", "checks": {
+      "I3.rollback": {"status": "pending", "slice": "2.7", "module": "appfactory.checkpoints.rollback", "what": "revert de merge e restauração de marco"}
+    }},
+    "I4": {"file": "test_resource_limits.py", "checks": {
+      "I4.sandbox_limits_within_ceilings": {"status": "active", "what": "limites de S1h/S2 nunca acima dos tetos do RESOURCE_POLICY.md"},
+      "I4.one_running_per_project": {"status": "active", "what": "no máximo 1 job ativo por projeto"},
+      "I4.resources_config_within_ceilings": {"status": "pending", "slice": "2.3", "module": "appfactory.resources.manager", "what": "config/resources.yaml dentro dos tetos"}
+    }},
+    "I5": {"file": "test_security_invariants.py", "checks": {
+      "I5.protected_paths": {"status": "active", "what": "lista protegida completa e aplicada pelo Toolbox"},
+      "I5.diff_guard": {"status": "active", "what": "diff tocando caminho protegido é rejeitado; fábrica × projeto (D-0053)"},
+      "I5.command_policy": {"status": "active", "what": "allowlist, negações, sem shell, npm/pip"},
+      "I5.redaction_clean_env": {"status": "active", "what": "redação de segredos e ambiente limpo"},
+      "I5.sandbox_fail_closed": {"status": "active", "what": "sandboxes de produção falham fechados e nunca rebaixam"},
+      "I5.token_separation": {"status": "active", "what": "separação de papéis/tokens"},
+      "I5.s1h_os_isolation": {"status": "pending", "slice": "2.6", "module": "appfactory.security.acl", "what": "usuário afrunner, ACL NTFS e S1h real"}
+    }},
+    "I6": {"file": "test_stop_mechanisms.py", "checks": {
+      "I6.stop_persistent": {"status": "active", "what": "STOP persiste; apagar o arquivo não libera; liberar exige confirmação"},
+      "I6.stop_deadlines": {"status": "active", "what": "terminate <= T0 + 30 s e fim <= T0 + 40 s, T0 persistido (D-0054)"},
+      "I6.job_object_kill": {"status": "pending", "slice": "2.4", "module": "appfactory.jobs.jobobjects", "what": "Job Object mata tudo se o daemon morrer (KI-0019)"}
+    }},
+    "I7": {"file": "test_human_approval.py", "checks": {
+      "I7.r2_r3_denied_without_approval": {"status": "active", "what": "R2 sem pré-autorização e R3 negados sem aprovação humana"},
+      "I7.release_requires_confirmation": {"status": "active", "what": "liberar o STOP exige confirmação interativa"},
+      "I7.interactive_approvals": {"status": "pending", "slice": "2.6", "module": "appfactory.security.approvals", "what": "af approve com código digitado"},
+      "I7.paid_budget_zero": {"status": "pending", "slice": "2.5", "module": "appfactory.routing.budget", "what": "orçamento pago padrão = 0"}
+    }}
+  }
+}

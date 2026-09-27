@@ -2,7 +2,12 @@
 payload ou usuário é executado (08 §0): o payload é só dado JSON validado.
 
 Fase 2.1 tem um único tipo, `demo.steps`, usado para validar o ciclo de vida do Job Manager.
-Injeção de falhas (`_faults`) só é aceita com AF_ALLOW_FAULT_INJECTION=1 (usado pelos testes)."""
+Injeção de falhas (`_faults`) só é aceita com AF_ALLOW_FAULT_INJECTION=1 (usado pelos testes).
+
+Fase 2.2 (aditivo): o StepContext passa a levar a identidade da tentativa e o manager, para o Toolbox mínimo
+(D-0050) registrar resultado/violação com fencing; StepInterrupted/StepHeld sinalizam ao executor que um
+passo foi interrompido por STOP/perda de posse ou que a tentativa já foi retida (BLOCKED/WAITING).
+Nenhum handler novo é registrado em produção (D-0047)."""
 from __future__ import annotations
 
 import os
@@ -10,11 +15,24 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable
 
-from appfactory.jobs.errors import FatalStepError, StepError
+from appfactory.jobs.errors import FatalStepError, JobManagerError, StepError
 
 
 def faults_enabled() -> bool:
     return os.environ.get("AF_ALLOW_FAULT_INJECTION") == "1"
+
+
+class StepInterrupted(JobManagerError):
+    """O passo foi interrompido por STOP do job, STOP da fábrica ou perda de posse (D-0054). O resultado
+    parcial já foi registrado no journal; o executor decide parar/pausar sem gravar checkpoint do passo."""
+
+    def __init__(self, reason: str, detail: str = "") -> None:
+        super().__init__(f"{reason}: {detail}" if detail else reason)
+        self.reason = reason
+
+
+class StepHeld(JobManagerError):
+    """A tentativa já foi retida (BLOCKED/WAITING) por hold_attempt; o executor só encerra."""
 
 
 @dataclass
@@ -22,6 +40,10 @@ class StepContext:
     attempt_n: int
     tmp_dir: str
     should_stop: Callable[[], bool] = field(default=lambda: False)
+    job_id: str | None = None
+    attempt_id: str | None = None
+    manager: object | None = None
+    step_index: int | None = None
 
 
 class DemoStepsHandler:

@@ -1,6 +1,6 @@
 # 10 — Estrutura de diretórios (I)
 
-Legenda: **[V]** versionado no Git da fábrica · **[I]** ignorado · **[P]** caminho protegido (08 §5.1) · *(Fx)* criado na fase indicada. Nada de código de produção existe ainda.
+Legenda: **[V]** versionado no Git da fábrica · **[I]** ignorado · **[P]** caminho protegido (08 §5.1) · *(Fx)* criado na fase indicada. Código de produção existente: Fase 2.1 (commitada) e Fase 2.2 (validada no Windows, pendente de commit); o restante da árvore continua planejado.
 
 **Fase 2.1 (2026-09-26):** existem `pyproject.toml`, `pytest.ini`, `.python-version`, `src/appfactory/{core,jobs,checkpoints,logs,cli}/`, `tests/{unit,integration}/`, `docs/runbooks/job-manager.md`. O restante da árvore continua planejado.
 

@@ -4,7 +4,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
-### Fase 2.2 — Especificação e decisões bloqueantes (2026-09-27) — pendente de commit
+### Fase 2.2 — Guardrails e segurança de execução (2026-09-27) — implementada e validada no Windows (157 passed, 7 skipped; guardrails 21 passed, 7 skipped), pendente de commit
+
+#### Adicionado
+- `config/policies/protected-paths.yaml` e `config/policies/commands.yaml` (subconjunto JSON, D-0049).
+- `src/appfactory/security/`: `paths.py`, `diff_guard.py`, `command_policy.py`, `guardrail_manifest.py`, `sandbox/{__init__,s1h_runner_user,docker}.py` (S1h/S2 falham fechados).
+- `src/appfactory/logs/audit.py` (auditoria com cadeia de hashes), `src/appfactory/core/auth.py` (papéis/tokens em memória), `src/appfactory/toolbox/{__init__,fs,shell}.py` (Toolbox mínimo, D-0050).
+- `tests/guardrails/` (I1–I7, `MANIFEST.json`, `pytest.ini` próprio), `tests/fakes/`, novos testes unitários e de integração (G22-01…G22-54; 106 testes).
+- `docs/runbooks/seguranca.md`; decisões D-0055, D-0056 (P-11: fail-closed na 2.2, STOP por falha de integridade obrigatório na 2.4) e D-0057 (P-08: `core/auth.py` com escopo limitado); KI-0021 e KI-0022.
+
+#### Alterado (aditivo; registrado em D-0055)
+- `src/appfactory/jobs/manager.py` (`hold_attempt`, `record_violation`, STOP auditado), `executor.py` (STOP da fábrica em `should_stop`, `StepInterrupted`/`StepHeld`), `handlers.py` (`StepContext` ampliado), `cli/main.py` (`af guard`, `af audit`, `af guardrails`).
+- `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`, `TEST_STATUS.md`, `COMMAND_LOG.md`, `KNOWN_ISSUES.md`, `.appfactory/job.json`; novo `CP-0005` (pronto para commit).
+- Documentação: especificação da 2.2 (estado, P-08/E10, P-11), `docs/architecture/10-diretorios.md` (legenda), `docs/architecture/14-plano-fase-2.md` (obrigações da 2.4 e da fatia da API, D-0056/D-0057), D-0055 (referências a D-0056/D-0057).
+
+#### Corrigido
+- `src/appfactory/security/paths.py`: nomes curtos 8.3 do Windows no caminho literal passam a ser expandidos (`GetLongPathNameW`, sem seguir links; falha ⇒ negar) antes da decisão — falha `test_g22_07b_short_names_resolved` na 1ª validação no Windows; revalidado no Windows.
+
+### Fase 2.2 — Especificação e decisões bloqueantes (2026-09-27) — commit `683b9e2`
 
 #### Adicionado
 - `docs/specs/fase-2.2-guardrails-e-seguranca.md` — especificação executável da Fase 2.2 (escopo, componentes, APIs, matriz G22-01…G22-54, critérios AC-01…AC-14, pendências).

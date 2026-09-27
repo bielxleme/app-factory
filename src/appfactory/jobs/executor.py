@@ -3,6 +3,10 @@
 Ciclo: claim -> retomar do último checkpoint válido -> para cada passo: heartbeat (observa STOP de job e
 STOP da fábrica) -> [journal intent] -> passo -> [journal result] -> checkpoint -> validação -> COMPLETED.
 STOP de job: termina o passo atual, grava checkpoint 'stop', limpa temporários, STOPPING -> STOPPED.
+
+Fase 2.2 (aditivo, D-0054): `should_stop` também observa o STOP da fábrica; um passo interrompido
+(StepInterrupted) nunca ganha checkpoint de passo — o job para/pausa a partir do último checkpoint válido.
+Passo retido (StepHeld) encerra sem novas escritas (a tentativa já foi fechada por hold_attempt).
 """
 from __future__ import annotations
 
@@ -15,7 +19,7 @@ from dataclasses import dataclass
 
 from appfactory.core.procinfo import current_identity
 from appfactory.jobs.errors import FatalStepError, LeaseLost, UnknownJobType
-from appfactory.jobs.handlers import StepContext, faults_enabled, get_handler
+from appfactory.jobs.handlers import StepContext, StepHeld, StepInterrupted, faults_enabled, get_handler
 
 
 @dataclass
@@ -70,7 +74,9 @@ class Executor:
             tmp_dir.mkdir(parents=True, exist_ok=True)
             hb.start()
             ctx = StepContext(attempt_n=claim["attempt_n"], tmp_dir=str(tmp_dir),
-                              should_stop=lambda: self._stop_seen.is_set() or self._lost.is_set())
+                              should_stop=lambda: (self._stop_seen.is_set() or self._lost.is_set()
+                                                   or self._factory_stop_seen.is_set()),
+                              job_id=job["id"], attempt_id=attempt_id, manager=self.m)
             faults = payload.get("_faults", {}) if faults_enabled() else {}
             total = handler.total_steps(payload)
             index = last_done + 1
@@ -81,11 +87,24 @@ class Executor:
                 if d["factory_stop"] or self._factory_stop_seen.is_set():
                     return self._pause_factory(attempt_id, job["id"], state, last_done)
                 key = self.m.journal_intent(attempt_id, index) if handler.has_side_effect(payload, index) else None
+                ctx.step_index = index
                 try:
                     state = handler.run_step(payload, state, index, ctx)
+                except StepHeld as exc:
+                    return self._result(job["id"], attempt_id, f"tentativa retida: {exc}")
+                except StepInterrupted as exc:
+                    d = self.m.heartbeat(attempt_id)   # LeaseLost aqui => posse perdida (tratado abaixo)
+                    if d["stop"] or self._stop_seen.is_set():
+                        return self._graceful_stop(attempt_id, job["id"], state, last_done, faults)
+                    if d["factory_stop"] or self._factory_stop_seen.is_set():
+                        return self._pause_factory(attempt_id, job["id"], state, last_done)
+                    self.m.fail_attempt(attempt_id, f"passo interrompido: {exc}")
+                    return self._result(job["id"], attempt_id, str(exc))
                 except FatalStepError as exc:
                     self.m.fail_attempt(attempt_id, str(exc), fatal=True)
                     return self._result(job["id"], attempt_id, str(exc))
+                except LeaseLost:
+                    raise  # posse perdida dentro do passo (ex.: cancelamento durante a execução): não escreve mais
                 except Exception as exc:  # noqa: BLE001 - falha de passo conta como tentativa falha
                     self.m.fail_attempt(attempt_id, f"{type(exc).__name__}: {exc}")
                     return self._result(job["id"], attempt_id, str(exc))

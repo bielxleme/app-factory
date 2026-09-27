@@ -1,35 +1,36 @@
 # HANDOFF.md — Ponto de parada
 
-**Atualizado em:** 2026-09-27 00:40 -03:00 · **Por:** Claude (Cowork)
+**Atualizado em:** 2026-09-27 04:45 -03:00 · **Por:** Claude (Cowork)
 
 ## Situação
-Fase 2.1 validada e commitada (`b0a80e5`, sincronizado com `origin/main`). **Fase 2.2 (Guardrails e segurança de execução): especificação pronta e as 7 decisões bloqueantes aprovadas pelo usuário e aplicadas à documentação (D-0048 a D-0054).** Nenhum código de produção, teste, configuração, usuário Windows, ACL, Job Object ou Docker foi criado ou alterado; o Job Manager da 2.1 e seus testes estão intactos.
+**Fase 2.2 (Guardrails e segurança de execução) implementada e validada no Windows real.** Base: `683b9e2`. **Nada foi commitado.** Documentação consolidada (D-0048 a D-0057); **CP-0005 pronto para commit** (`phase_2_2_ready_for_commit`, `validated_commit: null`). Falta: commit/push e validação pós-commit do CP-0005 (D-0011).
 
-## Decisões aplicadas (2026-09-27)
-- D-0048: guardrails sem componente ficam `pending` no manifesto protegido; **`pending` nunca é aprovação**; Evolution só com I1–I7 `active`.
-- D-0049: arquivos `.yaml` no subconjunto JSON, lidos com `json` (sem dependência nova).
-- D-0050: Toolbox mínimo (`fs.py`, `shell.py`) na 2.2; restante na 2.8.
-- D-0051: núcleo do Job Manager (`store`, `manager`, `executor`, `states`, `handlers`), `core/paths|clock|procinfo`, `cli/main.py` e futuros `state_machine`, `jobobjects`, `core/api` protegidos.
-- D-0052: `config/**` inteiro protegido.
-- D-0053: lista completa só no repositório da fábrica; projetos gerados com regras próprias; tipo de repositório decidido por código confiável (na dúvida, fábrica).
-- D-0054: STOP com `terminate` ≤ T0 + 30 s e encerramento total ≤ T0 + 40 s, T0 persistido no SQLite.
+## O que foi implementado
+- `config/policies/protected-paths.yaml` e `commands.yaml` (subconjunto JSON, D-0049).
+- `src/appfactory/security/`: `paths.py` (política de caminhos/arquivos, `classify_repo`), `diff_guard.py`, `command_policy.py`, `guardrail_manifest.py`, `sandbox/` (contrato, seleção, S1h/S2 **falhando fechados**).
+- `src/appfactory/logs/audit.py` (cadeia de hashes), `src/appfactory/core/auth.py` (papéis/tokens em memória), `src/appfactory/toolbox/fs.py` e `shell.py` (D-0050).
+- Integração aditiva com o Job Manager da 2.1 (`manager.py`, `executor.py`, `handlers.py`) e CLI (`af guard`, `af audit`, `af guardrails`) — registrada em D-0055.
+- `tests/guardrails/` (I1–I7 + `MANIFEST.json` + `pytest.ini` próprio), testes G22-01…G22-54, `tests/fakes/` (FakeSandbox só em testes), `docs/runbooks/seguranca.md`.
 
-## Arquivos alterados (não commitados)
-`DECISIONS.md`, `AGENTS.md`, `CHANGELOG.md`, `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`, `TEST_STATUS.md`, `docs/architecture/{README,01-componentes,05-resource-manager,08-seguranca,09-autoevolucao,10-diretorios,11-tecnologias,14-plano-fase-2,15-daemon}.md`, `docs/specs/fase-2.2-guardrails-e-seguranca.md` (novo).
+## Resultado dos testes
+- Linux (VM 3.10 e nuvem 3.11/3.12/3.13, `unittest`): **164 testes OK**, 10 pulados (7 guardrails `pending`, 2 que exigem pytest, 1 só-Windows). Os 58 testes da 2.1 continuam passando e não foram alterados.
+- Windows real (CPython 3.13.14, pytest 9.1.1): 1ª execução 156 passed, 7 skipped, 1 failed (nomes 8.3) → corrigido em `security/paths.py`; revalidação **`uv run pytest`: 157 passed, 7 skipped, 0 failed**; **guardrails: 21 passed, 7 skipped, 0 failed**; `git diff --check` sem erro (aviso LF→CRLF em `tools/diagnostics/measure-hardware.ps1`, arquivo não alterado pela 2.2).
 
-## Pendências
-- Não bloqueantes da 2.2: P-04, P-08, P-09, P-10, P-11, P-12, P-13, P-14 (especificação §9).
-- KI-0019/KI-0020 (2.4); KI-0014/KI-0016 (2.6).
-
-## Regras para a próxima IA
-- Ler `AGENTS.md`, `DECISIONS.md` (D-0048 a D-0054) e a especificação da 2.2.
-- Os arquivos do núcleo do Job Manager e a CLI agora são protegidos (D-0051): só sessões dirigidas pelo usuário os alteram, com registro.
-- **Não implementar a 2.2** sem nova instrução do usuário.
+## Limitações conhecidas
+- KI-0019: sem Job Object até a 2.4 — passo confiável no próprio processo que ignore `should_stop` não pode ser morto.
+- S1h/S2 não existem de verdade (KI-0014, KI-0015, KI-0016, KI-0011): toda execução não confiável termina em `BLOCKED(sandbox_unavailable)`.
+- P-13: corte das últimas linhas do `audit.jsonl` não é detectável só pela cadeia (KI-0021); P-14: hooks do git em worktrees graváveis (KI-0022).
+- P-11 decidida em D-0056 (fail-closed na 2.2; STOP por falha de integridade obrigatório na 2.4) e P-08 em D-0057 (autorização com escopo limitado). Escolhas provisórias de P-09, P-10, P-12, P-13 e P-14 em D-0055 aguardam decisão; P-04 também segue aberta.
 
 ## Próxima ação (usuário, PowerShell em `D:\Claude\app-factory`)
 ```powershell
 git status
 git add .
-git commit -m "docs: approve Phase 2.2 blocking decisions"
+git commit -m "feat: add guardrails and execution security (Phase 2.2)"
 git push
 ```
+Depois: validação pós-commit (preencher `validated_commit` do CP-0005).
+
+## Regras para a próxima IA
+- Ler `AGENTS.md`, `DECISIONS.md` (D-0048 a D-0057), a especificação da 2.2 e `docs/runbooks/seguranca.md`.
+- Não avançar para a 2.3 sem o commit da 2.2, a validação pós-commit do CP-0005 e nova instrução do usuário.

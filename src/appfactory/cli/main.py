@@ -1,9 +1,14 @@
-"""CLI mínima `af` para validar o Job Manager (Fase 2.1). Não é a interface completa da App Factory."""
+"""CLI mínima `af` (Fases 2.1–2.2). Não é a interface completa da App Factory.
+
+Fase 2.2 (aditivo): `af guard check-diff|check-path`, `af audit verify`, `af guardrails run|status`.
+Códigos de saída: 0 = ok/permitido; 3 = rejeitado/negado/adulterado; 2 = erro."""
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import secrets
+import subprocess
 import sys
 
 from appfactory import __version__
@@ -75,6 +80,26 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="estado do STOP da fábrica e contagem de jobs")
     db = sub.add_parser("db", help="banco de dados").add_subparsers(dest="action", required=True)
     db.add_parser("check", help="integridade e schema")
+
+    guard = sub.add_parser("guard", help="verificações de segurança (Fase 2.2)").add_subparsers(dest="action",
+                                                                                               required=True)
+    cd = guard.add_parser("check-diff", help="rejeita diff que toque caminho protegido (08 §5.3)")
+    cd.add_argument("--repo", help="repositório (padrão: raiz da fábrica)")
+    cd.add_argument("--base", required=True)
+    cd.add_argument("--head", required=True)
+    cp = guard.add_parser("check-path", help="decide uma operação de arquivo pela política (08 §5, §6)")
+    cp.add_argument("--op", required=True, choices=["read", "create", "write", "delete", "rename"])
+    cp.add_argument("--path", required=True)
+    cp.add_argument("--dest")
+    cp.add_argument("--worktree")
+    cp.add_argument("--writes", nargs="*", default=[])
+    cp.add_argument("--job-id", default="JOB-CLI")
+    cp.add_argument("--attempt-id", default="JOB-CLI-A00")
+    au = sub.add_parser("audit", help="trilha de auditoria").add_subparsers(dest="action", required=True)
+    au.add_parser("verify", help="verifica a cadeia de hashes de audit.jsonl").add_argument("--file")
+    gr = sub.add_parser("guardrails", help="guardrails I1–I7 (D-0048)").add_subparsers(dest="action", required=True)
+    gr.add_parser("run", help="roda a suíte pelo comando fixo e mostra as pendências")
+    gr.add_parser("status", help="estado do manifesto (pending nunca é aprovação)")
     return p
 
 
@@ -87,7 +112,50 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
 
+def _security(args) -> int:
+    from pathlib import Path
+
+    from appfactory.core.paths import FactoryPaths
+    from appfactory.logs import audit
+    from appfactory.security import guardrail_manifest as gm
+    from appfactory.security.diff_guard import check_diff
+    from appfactory.security.paths import ProtectedPaths, check_access, make_scope
+
+    root = Path(args.root or discover_root()).resolve()
+    if args.cmd == "guard" and args.action == "check-diff":
+        verdict = check_diff(Path(args.repo).resolve() if args.repo else root, args.base, args.head,
+                             ProtectedPaths.load(root), root)
+        _print(verdict.to_dict(), True)
+        return 0 if verdict.ok else 3
+    if args.cmd == "guard" and args.action == "check-path":
+        scope = make_scope(root, args.job_id, args.attempt_id, args.worktree, writes=tuple(args.writes))
+        decision = check_access(args.op, args.path, scope, ProtectedPaths.load(root), dest=args.dest)
+        _print({**decision.to_dict(), "repo_kind": scope.repo_kind}, True)
+        return 0 if decision.allowed else 3
+    if args.cmd == "audit":
+        path = Path(args.file) if args.file else audit.audit_path(FactoryPaths(root))
+        ok, idx, why = audit.verify_chain(path)
+        _print({"file": str(path), "ok": ok, "first_invalid_line": idx, "detail": why}, True)
+        return 0 if ok else 3
+    if args.cmd == "guardrails":
+        manifest = gm.load_manifest(root)
+        if args.action == "status":
+            _print({"invariants": gm.invariant_status(manifest), "pending": sorted(gm.pending(manifest)),
+                    "evolution_allowed": gm.evolution_allowed(manifest),
+                    "note": "D-0048: pending nunca significa aprovação"}, True)
+            return 0
+        if importlib.util.find_spec("pytest") is None:
+            print("erro: pytest não está instalado neste ambiente (use `uv run af guardrails run`)", file=sys.stderr)
+            return 2
+        proc = subprocess.run([sys.executable, *gm.FIXED_COMMAND], cwd=str(root), check=False)
+        _print(gm.approval(manifest, proc.returncode), True)
+        return proc.returncode
+    return 1
+
+
 def _dispatch(args) -> int:
+    if args.cmd in ("guard", "audit", "guardrails"):
+        return _security(args)
     if args.cmd == "db":
         root = args.root or discover_root()
         conn = connect(FactoryPaths(root).db)

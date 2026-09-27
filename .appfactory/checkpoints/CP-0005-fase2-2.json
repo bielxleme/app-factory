@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "CP-0005",
+  "slug": "fase2-2",
+  "title": "Fase 2.2 — Guardrails e segurança de execução",
+  "created_at": "2026-09-27T01:05:00-03:00",
+  "created_by": "Claude (Cowork)",
+  "phase": "2.2",
+  "state": "phase_2_2_ready_for_commit",
+  "git": {
+    "branch": "main",
+    "parent_commit": "683b9e2",
+    "validated_commit": null,
+    "expected_commit_message": "feat: add guardrails and execution security (Phase 2.2)",
+    "remote": "https://github.com/bielxleme/app-factory.git",
+    "note": "Implementação validada no Windows sobre a base 683b9e2 e documentação consolidada (D-0048 a D-0057); pronta para commit, ainda NÃO commitada. validated_commit será preenchido na validação pós-commit (D-0011); só então o estado passa a phase_2_2_validated.",
+    "validation_base_commit": "683b9e2"
+  },
+  "implemented": [
+    "config/policies/protected-paths.yaml",
+    "config/policies/commands.yaml",
+    "src/appfactory/security/{paths,diff_guard,command_policy,guardrail_manifest}.py",
+    "src/appfactory/security/sandbox/{__init__,s1h_runner_user,docker}.py (fail-closed)",
+    "src/appfactory/logs/audit.py",
+    "src/appfactory/core/auth.py",
+    "src/appfactory/toolbox/{fs,shell}.py",
+    "CLI: af guard check-diff|check-path, af audit verify, af guardrails run|status",
+    "tests/guardrails (I1–I7 + MANIFEST.json + pytest.ini)",
+    "docs/runbooks/seguranca.md"
+  ],
+  "protected_files_changed_additively": [
+    "src/appfactory/jobs/manager.py",
+    "src/appfactory/jobs/executor.py",
+    "src/appfactory/jobs/handlers.py",
+    "src/appfactory/cli/main.py"
+  ],
+  "tests": {
+    "total": 164,
+    "new": 106,
+    "linux_python_3_10": "164 OK (10 pulados)",
+    "linux_python_3_11": "164 OK (10 pulados)",
+    "linux_python_3_12": "164 OK (10 pulados)",
+    "linux_python_3_13": "164 OK (10 pulados)",
+    "skipped_reasons": {
+      "guardrails_pending": 7,
+      "requires_pytest": 2,
+      "windows_only": 1
+    },
+    "windows_uv_run_pytest": "157 passed, 7 skipped, 0 failed (87,02 s) — Windows real, CPython 3.13.14, pytest 9.1.1 (informado pelo operador; evidências em .venv)",
+    "guardrails_fixed_command": "21 passed, 7 skipped, 0 failed (4,27 s) — Windows real",
+    "windows_first_run": "156 passed, 7 skipped, 1 failed (test_g22_07b_short_names_resolved) — corrigido em security/paths.py (nomes curtos 8.3)",
+    "windows_8_3_fix": "validada: tests/unit/test_paths_policy.py passou integralmente no Windows",
+    "git_diff_check_windows": "sem erro; aviso LF→CRLF em tools/diagnostics/measure-hardware.ps1 (não alterado pela 2.2)"
+  },
+  "guardrails": {
+    "I1": "active",
+    "I2": "pending:2.7",
+    "I3": "pending:2.7",
+    "I4": "pending:2.3",
+    "I5": "pending:2.6",
+    "I6": "pending:2.4",
+    "I7": "pending:2.5,2.6",
+    "evolution_allowed": false,
+    "note": "D-0048: pending nunca significa aprovação"
+  },
+  "decisions": [
+    "D-0048",
+    "D-0049",
+    "D-0050",
+    "D-0051",
+    "D-0052",
+    "D-0053",
+    "D-0054",
+    "D-0055",
+    "D-0056",
+    "D-0057"
+  ],
+  "known_issues": [
+    "KI-0011",
+    "KI-0014",
+    "KI-0015",
+    "KI-0016",
+    "KI-0019",
+    "KI-0020",
+    "KI-0021",
+    "KI-0022"
+  ],
+  "pending_user_decisions": [
+    "P-04",
+    "P-09",
+    "P-10",
+    "P-12",
+    "P-13",
+    "P-14"
+  ],
+  "not_done_on_purpose": [
+    "usuário afrunner, ACLs, Job Objects, Docker (2.4/2.6)",
+    "daemon e API local (2.4)",
+    "Resource Manager (2.3)",
+    "routers/Ollama (2.5)",
+    "rollback (2.7)",
+    "agentes e Evolution (2.8+)",
+    "git.py/web.py/browser.py/db.py do Toolbox (2.8)"
+  ],
+  "next_step": "Usuário: commit `feat: add guardrails and execution security (Phase 2.2)` + push; depois validação pós-commit (preencher validated_commit).",
+  "validated_at_windows": "2026-09-27T04:35:00-03:00",
+  "acceptance_criteria": {
+    "AC-01": "OK (Windows)",
+    "AC-02": "OK (Windows)",
+    "AC-03..AC-14": "OK (Linux 3.10–3.13; suíte Windows sem falhas)"
+  },
+  "ready_for_commit_at": "2026-09-27T04:45:00-03:00",
+  "decided_after_implementation": {
+    "P-11": "D-0056 — fail-closed sem STOP global na 2.2 (provisório); STOP por falha de integridade obrigatório na 2.4",
+    "P-08": "D-0057 — core/auth.py aprovado com escopo limitado (matriz/tokens em memória; sem API, daemon, arquivo de token ou ACL)"
+  },
+  "obligations_for_later_slices": [
+    "2.4 (D-0056): verificar a integridade dos guardrails antes de qualquer execução real e acionar o STOP da fábrica em caso de falha",
+    "fatia da API/daemon (D-0057): aplicação operacional da autorização (tokens por papel, user.token com ACL)"
+  ]
+}

@@ -88,3 +88,11 @@
 ## KI-0020 · Limitação (até a 2.4) · Escritor único transitório
 - **Descrição:** vários processos (CLI/executores) escrevem no SQLite, serializados por `BEGIN IMMEDIATE` (D-0043), em vez de só o daemon (D-0037).
 - **Ação:** fatia 2.4.
+
+## KI-0021 · Aberto (pendente de decisão: P-13) · Truncamento do fim de `audit.jsonl` não detectável pela cadeia
+- **Descrição:** a cadeia `prev_hash` de `.appfactory/logs/audit.jsonl` (Fase 2.2, `logs/audit.py`) detecta linha alterada, removida no meio, inserida ou reordenada, mas **não** detecta a remoção das últimas linhas: o arquivo truncado continua sendo uma cadeia válida. Comportamento documentado no teste `tests/unit/test_audit.py` (G22-17d/G22-46).
+- **Ação:** decisão do usuário sobre P-13 (especificação da 2.2 §9). Nenhuma solução adotada; registrado como escolha provisória em D-0055.
+
+## KI-0022 · Aberto (pendente de decisão: P-14) · Hooks/configuração do git em worktrees graváveis
+- **Descrição:** worktrees de task serão graváveis por código não confiável (`afrunner`, fatia 2.6); o arquivo `.git` do worktree ou configurações do repositório podem apontar para *hooks* que o git executaria como usuário principal quando código confiável rodar `git` nesse worktree. Na 2.2 o Toolbox não executa `git` (S0 recusado; `git.py` só na fatia 2.8) e o verificador de diff roda `git diff` com `--no-ext-diff --no-textconv` e `core.fsmonitor=false`, mas a proteção definitiva não está especificada.
+- **Ação:** decisão do usuário sobre P-14 (especificação da 2.2 §9) antes da fatia 2.8 (`toolbox/git.py`). Nenhuma solução adotada; registrado como escolha provisória em D-0055.

@@ -167,3 +167,44 @@ git push
 | VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` | 58 testes OK |
 | VM | `cat .venv/pyvenv.cfg` ; `ls .venv/Lib/site-packages` ; `ls tests/*/__pycache__` | evidências da execução no Windows (CPython 3.13.14, pytest 9.1.1) |
 | VM | `python3 - <<'PY' … PY` (CP-0004, job.json, TEST_STATUS, KNOWN_ISSUES, CHANGELOG, COMMAND_LOG) ; `cat > PROJECT_STATE.md / HANDOFF.md / TASK_QUEUE.md` | atualizados |
+
+## 2026-09-27 — Fase 2.2: implementação (base `683b9e2`, sem commit)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `git status -sb` ; `git log --oneline -3` ; leitura de manager/executor/handlers/cli/paths/store/testes | limpo em `683b9e2` |
+| VM | `mkdir -p config/policies src/appfactory/{security/sandbox,toolbox} tests/{fakes,guardrails}` + `cat > <arquivo> <<'EOF' … EOF` ; `python3 - <<'EOF' … EOF` (edições aditivas) | criado/alterado |
+| VM | `PYTHONPATH=src:. python3 -m unittest tests.<módulo>` (por módulo, durante o desenvolvimento) | 2 falhas encontradas e corrigidas: `git checkout` sem `-f` após commit só de índice; `LeaseLost` dentro do passo capturado como falha genérica (executor passou a repassá-lo); 1 ajuste de tolerância de 1 ms no teste de latência |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` | **164 OK** (10 pulados) |
+| VM → Nuvem | `device_stage_files` (83 arquivos) ; `python3.11/3.12/3.13 -m unittest discover -s tests -t .` | **164 OK** em cada versão (10 pulados) |
+| Nuvem | `pip download pytest` ; `curl https://pypi.org/simple/pytest/` | 403 — PyPI bloqueado pela política de rede (não repetido) |
+| VM | `python3 -m appfactory guardrails status` ; `guard check-path` ; `audit verify` | I1 active, demais com pendências; `evolution_allowed: false`; códigos 0/3 corretos |
+| VM | `git diff --check` ; busca de segredos ; `git status --short --ignored` | OK (valor fictício `AKIA…` passou a ser montado em tempo de execução) |
+
+### Validação e commit da Fase 2.2 (usuário, PowerShell) — PENDENTE
+```powershell
+uv run pytest
+uv run python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails
+git add .
+git commit -m "feat: add guardrails and execution security (Phase 2.2)"
+git push
+```
+
+## 2026-09-27 — Fase 2.2: correção 8.3 e validação no Windows (base `683b9e2`, sem commit)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| PS (usuário) | `uv run pytest` (1ª execução) | 156 passed, 7 skipped, 1 failed (`test_g22_07b_short_names_resolved`) |
+| VM | `python3 - <<'EOF' … EOF` (edição de `src/appfactory/security/paths.py`: expansão de nomes 8.3) ; `PYTHONPATH=src python3 -m unittest discover -s tests -t .` | 164 OK (10 pulados) |
+| PS (usuário) | `uv run pytest` | **157 passed, 7 skipped in 87.02s** (0 failed) — CPython 3.13.14 |
+| PS (usuário) | `uv run python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails` | **21 passed, 7 skipped in 4.27s** (0 failed) |
+| PS (usuário) | `git diff --check` | sem erro; aviso LF→CRLF em `tools/diagnostics/measure-hardware.ps1` |
+| VM | `cat .venv/pyvenv.cfg` ; `ls .venv/Lib/site-packages` ; `ls tests/unit/__pycache__` | evidências: CPython 3.13.14, uv 0.12.12, pytest 9.1.1 |
+| VM | `python3 - <<'EOF' … EOF` (TEST_STATUS, CP-0005, job.json, PROJECT_STATE, TASK_QUEUE, HANDOFF, CHANGELOG, COMMAND_LOG) ; `git diff --check` ; `git status --short` | consolidação documental; nenhum código/teste/configuração alterado |
+
+### Commit da Fase 2.2 (usuário, PowerShell) — PENDENTE
+```powershell
+git add .
+git commit -m "feat: add guardrails and execution security (Phase 2.2)"
+git push
+```

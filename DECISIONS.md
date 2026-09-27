@@ -299,3 +299,38 @@ Pendências P-01, P-02, P-03, P-05, P-06, P-07 e P-15 da especificação `docs/s
 - **Motivo:** heartbeat de 15 s + carência de 30 s + kill de 10 s poderia chegar a ~55 s se contado da detecção; medir desde a chegada do sinal ao runner enfraqueceria o STOP.
 - **Alternativas rejeitadas:** reduzir a carência para 29 s (muda 01 §0 e continua dependendo da detecção); medir desde a chegada do sinal (enfraquece I6).
 - **Status:** aprovada pelo usuário (2026-09-27). Complementa D-0028 e D-0031; esclarece 09 I6, 01 §0 e 15 §2/§9.
+
+---
+
+# Fase 2.2 — Implementação (2026-09-27) · base: commit `683b9e2`
+
+## D-0055 · 2026-09-27 · Alterações aditivas em arquivos protegidos e escolhas provisórias da implementação da 2.2
+- **Registro (AGENTS §3.15, D-0051):** para integrar a 2.2 ao Job Manager, a sessão dirigida pelo usuário alterou arquivos protegidos, de forma **aditiva** e mínima, sem mudar estados, tabelas, checkpoints, leases, locks nem o STOP existente:
+  - `src/appfactory/jobs/manager.py`: `hold_attempt` (RUNNING → BLOCKED/WAITING com fencing, transições já existentes) e `record_violation` (evento `security.violation` + auditoria); `stop_factory` passa a auditar (`stop.set`, falha da auditoria nunca impede o STOP); `resume_factory` audita `stop.released` **antes** do commit (sem auditoria não há liberação).
+  - `src/appfactory/jobs/executor.py`: `should_stop` também observa o STOP da fábrica (D-0054); trata `StepInterrupted` (para/pausa sem checkpoint do passo interrompido), `StepHeld` (tentativa já retida) e repassa `LeaseLost` levantado dentro do passo.
+  - `src/appfactory/jobs/handlers.py`: `StepContext` ganha `job_id`, `attempt_id`, `manager`, `step_index`; exceções `StepInterrupted`/`StepHeld`. Nenhum handler novo em produção (D-0047).
+  - `src/appfactory/cli/main.py`: `af guard check-diff|check-path`, `af audit verify`, `af guardrails run|status`.
+- **Escolhas provisórias** (comportamento adotado na implementação para pendências não bloqueantes; nem todas seguem a recomendação da especificação — ver P-11, P-13 e P-14; **nenhuma pendência foi resolvida por esta decisão**; P-11 e P-08 foram decididas depois em D-0056 e D-0057; as demais, assim como P-04, continuam **pendentes de decisão do usuário**):
+  - P-08: autorização só em memória (`core/auth.py`), sem API e sem arquivo de token. → **Decidida em D-0057** (aprovação com escopo limitado).
+  - P-09: S1h exigido e indisponível ⇒ `BLOCKED` (sem escalonar automaticamente para S2).
+  - P-10: instaladores fora da tabela 08 §4.3 (`uv pip/sync/add/run…`, `npx`, `yarn`, `pnpm`) ⇒ S2; limites do container = tetos do S1h; imagem sem política definida.
+  - P-11: STOP da fábrica por guardrail não é acionado automaticamente nesta fase (só violações ⇒ `BLOCKED`; lista protegida inválida faz a operação falhar fechada, sem executar). **Difere** da recomendação (a) da especificação (§2.5 item 6, §9), que acionaria `stop_factory(reason="guardrail")` em falha de integridade. → **Decidida em D-0056** (aceito como provisório na 2.2; STOP por falha de integridade obrigatório na 2.4).
+  - P-12: reincidência = 2ª violação no mesmo job ⇒ `BLOCKED(policy_violation)`; diff protegido bloqueia na 1ª.
+  - P-13: sem âncora da auditoria no SQLite (recomendação (a) da especificação **não** implementada); corte das últimas linhas do `audit.jsonl` não é detectável só pela cadeia (KI-0021).
+  - P-14: o Toolbox da 2.2 não executa `git` (S0 é recusado); o verificador de diff roda `git diff` com `--no-ext-diff --no-textconv` e `core.fsmonitor=false`. A recomendação (a) da especificação (`core.hooksPath` vazio, `GIT_CONFIG_NOSYSTEM`, verificação do `.git`) **não** foi implementada (KI-0022).
+- **Status:** registrada na implementação (2026-09-27); as escolhas provisórias aguardam decisão do usuário, exceto P-11 (D-0056) e P-08 (D-0057).
+
+## D-0056 · 2026-09-27 · STOP por perda de integridade dos guardrails: fail-closed na 2.2, STOP obrigatório na 2.4 (P-11)
+- **Decisão (Fase 2.2):** perda de integridade dos próprios guardrails — `config/policies/protected-paths.yaml`, `config/policies/commands.yaml` ou `tests/guardrails/MANIFEST.json` ausente ou inválido — leva a **falha fechada**: a operação é recusada e **nenhuma execução é permitida**. O STOP global da fábrica **não** é acionado automaticamente nesta fase. A cadeia do `audit.jsonl` continua sendo verificada **manualmente** por `af audit verify`. Este comportamento fica **explicitamente aceito como provisório**.
+- **Obrigação (Fase 2.4):** a integridade dos guardrails (arquivos de política, manifesto e cadeia de auditoria) deve ser verificada **antes de qualquer execução real**, a partir da partida do daemon; falha de integridade deve **obrigatoriamente** acionar o STOP da fábrica (`reason="guardrail"`, 08 §9; 12 §12), antes das execuções das fatias que dependem do daemon. Registrada em `TASK_QUEUE.md` e em `14-plano-fase-2.md` (fatia 2.4).
+- **Motivo:** na 2.2 não há agentes nem execução não confiável (os sandboxes falham fechados), então o ganho imediato do STOP é pequeno e a verificação da cadeia a cada execução teria custo crescente; o lugar natural da verificação é a partida do daemon. A falha fechada já impede qualquer execução, e o STOP existente não é enfraquecido. Análise na especificação da 2.2 §9 (P-11).
+- **Alternativa rejeitada:** alterar a implementação da 2.2 para acionar o STOP agora (reabriria a fase: arquivos protegidos, testes novos e nova validação no Windows).
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P-11; atualiza a escolha provisória registrada em D-0055; complementa D-0028 e D-0054.
+
+## D-0057 · 2026-09-27 · Autorização `core/auth.py` aprovada na 2.2 com escopo limitado (P-08)
+- **Decisão:** `src/appfactory/core/auth.py` fica aprovado como parte da Fase 2.2 **somente** para: matriz de autorização por papel (`user`/`runner`/`ui`, 12 §11); registro de tokens **em memória**; armazenamento **somente do hash** do token; comparação em tempo constante; expiração associada ao lease; revogação conforme a implementação atual; e os testes correspondentes (G22-18e, G22-47 e a verificação `I5.token_separation` dos guardrails).
+- **O que a aprovação NÃO significa:** não existe API local; não existe daemon integrado; não existe arquivo persistente de tokens (`user.token`); não existe ACL; não existe autenticação operacional completa; a autorização **não** está aplicada a nenhuma API (ainda inexistente).
+- **Obrigação futura:** a aplicação operacional completa da autorização fica para a fatia que implementar a API local/daemon (tokens por papel; 08 §8, 12 §11, D-0027). Registrada em `TASK_QUEUE.md` e em `14-plano-fase-2.md`.
+- **Motivo:** o módulo é pequeno, protegido (D-0051), coberto por testes e fixa a matriz de 12 §11 antes da API; retirá-lo exigiria mudar código e testes, rebaixar uma verificação ativa dos guardrails e revalidar no Windows, sem ganho de segurança.
+- **Alternativa rejeitada:** retirar ou adiar `core/auth.py` para a 2.6.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P-08; atualiza a escolha provisória registrada em D-0055; complementa D-0027.

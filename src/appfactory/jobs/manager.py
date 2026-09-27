@@ -33,6 +33,7 @@ from appfactory.jobs.errors import (FactoryStopped, InvalidTransition, JobAlread
                                     LeaseLost, NothingToRun, ProjectBusy, ValidationRequired)
 from appfactory.jobs.handlers import get_handler
 from appfactory.jobs.store import connect, emit, migrate, write_tx
+from appfactory.logs import audit
 from appfactory.logs.jsonlog import append_jsonl, write_json_atomic
 from appfactory.logs.redaction import redact
 
@@ -532,6 +533,41 @@ class JobManager:
             locks.release_owner(conn, job_id)
             return job
 
+    # ------------------------------------------------------------------ segurança (Fase 2.2)
+    def hold_attempt(self, attempt_id: str, target: str, reason: str) -> dict:
+        """Retém a tentativa dona: RUNNING -> BLOCKED/WAITING (transições já existentes), fecha a tentativa,
+        libera os locks e aponta a retomada para o último checkpoint válido. Com fencing. Sem estado novo."""
+        if target not in (S.BLOCKED, S.WAITING):
+            raise ValueError("hold_attempt só aceita BLOCKED ou WAITING")
+        with self._tx() as conn:
+            _att, job = self._fenced(conn, attempt_id, {S.RUNNING})
+            self._close_attempt(conn, attempt_id, "held", reason)
+            job = self._get_job(conn, job["id"])
+            point = self._resume_point(conn, job["id"])
+            conn.execute("UPDATE jobs SET resume_from = ? WHERE id = ?", (point["id"] if point else None, job["id"]))
+            job = self._transition(conn, job, target, reason=redact(reason)[:500], actor="security")
+            locks.release_owner(conn, job["id"])
+            return job
+
+    def record_violation(self, attempt_id: str, rule: str, detail: str, audit_type: str = "security.violation",
+                         payload: dict | None = None) -> int:
+        """Registra `security.violation` (evento append-only, com fencing) e na auditoria. Devolve quantas
+        violações o job já teve (reincidência = 2ª no mesmo job; P-12, recomendação (a))."""
+        with self._tx() as conn:
+            _att, job = self._fenced(conn, attempt_id, {S.RUNNING, S.STOPPING})
+            emit(conn, self._now(), "security.violation", job_id=job["id"], attempt_id=attempt_id,
+                 actor="security", reason=redact(f"{rule}: {detail}")[:500],
+                 payload={"rule": rule, **({"verdict": payload} if payload else {})})
+            count = conn.execute("SELECT COUNT(*) FROM events WHERE job_id = ? AND type = 'security.violation'",
+                                 (job["id"],)).fetchone()[0]
+        try:
+            audit.append(audit.audit_path(self.paths), {"type": audit_type, "job_id": job["id"],
+                                                        "attempt_id": attempt_id, "rule": rule,
+                                                        "detail": detail[:500], "count": count})
+        except Exception:  # noqa: BLE001 - o evento já está no SQLite (fonte da verdade)
+            pass
+        return int(count)
+
     # ------------------------------------------------------------------ STOP da fábrica (D-0028)
     def factory_stop_state(self) -> dict:
         self.check_stop_file()
@@ -549,7 +585,14 @@ class JobManager:
             changed = factory_stop.set_stop(conn, self._now(), reason, actor)
             for r in conn.execute("SELECT * FROM jobs WHERE state = 'RUNNING' AND current_attempt_id IS NULL").fetchall():
                 self._transition(conn, _row(r), S.PAUSED, reason="factory_stop", actor=actor)
+            state = factory_stop.get_state(conn)
         self.factory_stop_flag.set()
+        if changed:  # 08 §9: acionar vai para audit.jsonl. Falha da auditoria NUNCA impede o STOP.
+            try:
+                audit.append(audit.audit_path(self.paths), {"type": "stop.set", "reason": reason, "actor": actor,
+                                                            "t0": state.get("set_at")})
+            except Exception:  # noqa: BLE001 - direção segura: a parada já está persistida no SQLite
+                pass
         return changed
 
     def resume_factory(self, actor: str = "user", confirmed: bool = False) -> bool:
@@ -559,6 +602,8 @@ class JobManager:
         with self._tx() as conn:
             changed = factory_stop.release(conn, self._now(), actor)
             if changed:
+                # 08 §9: liberar vai para audit.jsonl ANTES do commit; sem auditoria não há liberação.
+                audit.append(audit.audit_path(self.paths), {"type": "stop.released", "actor": actor})
                 for r in conn.execute("SELECT * FROM jobs WHERE state = 'PAUSED' AND state_reason = 'factory_stop'"
                                       ).fetchall():
                     self._transition(conn, _row(r), S.QUEUED, reason="factory_stop_released", actor=actor)

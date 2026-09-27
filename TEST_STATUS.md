@@ -129,3 +129,42 @@ Comando: `PYTHONPATH=src python -m unittest discover -s tests -t .`
 | S2.2-12 | Markdown: blocos de código fechados, tabelas com número de colunas consistente; `git diff --check` | VM | OK |
 | S2.2-13 | Nenhuma mudança em `src/`, `tests/`, `pytest.ini`, `pyproject.toml`, `uv.lock` | VM (`git diff --stat`) | OK — vazio |
 | S2.2-14 | Testes | — | **Não executados** (nenhum código alterado) |
+
+## Fase 2.2 — Implementação (2026-09-27) · base `683b9e2` · não commitada
+
+Ambientes: **VM** = Linux do Cowork, Python 3.10.12 · **Nuvem** = Linux, Python 3.11/3.12/3.13 (cópia dos arquivos) · **Windows** = ainda não executado. Pytest indisponível na VM e na nuvem (PyPI bloqueado pela política de rede); os testes são `unittest` compatíveis com pytest. Comando: `PYTHONPATH=src python -m unittest discover -s tests -t .`
+
+| # | Suíte / verificação | IDs | Ambiente | Resultado |
+| --- | --- | --- | --- | --- |
+| T2.2-01 | `tests/unit/test_paths_policy.py` — leitura/escrita/remoção/renomeação por área, `..`, absolutos/UNC/outra unidade, symlink/junction, nomes do Windows, hardlink, estado operacional, lista protegida, credenciais, formato D-0049 (21) | G22-01…15, 16a, 17a, 18d, 19, 54 | VM, Nuvem | OK (1 pulado fora do Windows: nomes 8.3) |
+| T2.2-02 | `tests/unit/test_diff_guard.py` — A/M/D/R/C/T, diff limpo, symlink/gitlink, `[tool.pytest`, falha do git, maiúsculas, fábrica × projeto, `evo/*`, declaração da TaskSpec ignorada (10) | G22-15b, 16c, 17b, 18a, 21…26, 53 | VM, Nuvem | OK |
+| T2.2-03 | `tests/unit/test_command_policy.py` — comandos proibidos, forma do comando, npm/pip, scripts, ambiente limpo (6) | G22-19, 28…31 | VM, Nuvem | OK |
+| T2.2-04 | `tests/unit/test_sandbox_selection.py` — nunca rebaixa, produção falha fechada, `S1hLaunchSpec`, `DockerSpec`, tetos, fórmula dos prazos do STOP (6) | G22-32…36 | VM, Nuvem | OK |
+| T2.2-05 | `tests/unit/test_audit.py` — concorrência (4 threads + 2 processos, 150 linhas), adulteração, redação antes do hash (4) | G22-17d, 20, 46 | VM, Nuvem | OK (limitação P-13 documentada no teste) |
+| T2.2-06 | `tests/unit/test_auth.py` — matriz de papéis, tokens em memória (3) | G22-18e, 47 | VM, Nuvem | OK |
+| T2.2-07 | `tests/unit/test_repo_hygiene.py` — config do pytest travada, sem `shell=True`, subprocess confinado, sem dependências, só sandboxes fail-closed em `src/`, nenhuma chamada que altere o SO, `.yaml` em JSON (6) | G22-51, AC-06…09 | VM, Nuvem | OK |
+| T2.2-08 | `tests/integration/test_exec_pipeline.py` — execução OK/falha/erro/timeout/limites, produção bloqueia, R2 bloqueia, violação e reincidência, diff rejeitado bloqueia, STOP do job/da fábrica durante a execução (tempo real e simulado), latência de detecção, STOP antes, cancelamento, queda real + recuperação, imutabilidade (16) | G22-16b, 17c, 18b/c, 20, 27, 28b, 30b, 33, 37…45 | VM, Nuvem | OK |
+| T2.2-09 | `tests/integration/test_cli_guard.py` — `af guard check-diff` (0/3), `check-path`, `af audit verify` (0/3), `af guardrails status` (4) | AC-04, AC-11 | VM, Nuvem | OK |
+| T2.2-10 | `tests/integration/test_guardrails_command.py` — comando fixo e `conftest.py` malicioso ignorado (2) | G22-48, 49 | VM, Nuvem | **pulados** (pytest indisponível) — executar no Windows |
+| T2.2-11 | `tests/guardrails/` via `unittest` — I1–I7 + controle do manifesto (28) | I1–I7, G22-50 | VM, Nuvem | OK, 7 pulados = exatamente as verificações `pending` do manifesto |
+| T2.2-12 | Suíte completa | todos | VM 3.10 · Nuvem 3.11/3.12/3.13 | **164 testes OK** em cada versão (10 pulados: 7 `pending`, 2 pytest, 1 só-Windows) |
+| T2.2-13 | Os 58 testes da 2.1 | — | VM, Nuvem | OK; nenhum arquivo de teste da 2.1 alterado (`git diff --stat tests/unit tests/integration` vazio para arquivos existentes) |
+| T2.2-14 | `git diff --check` · busca de segredos · runtime fora do Git | AC-12 | VM | OK (valor fictício `AKIA…` num teste passou a ser montado em tempo de execução) |
+| T2.2-15 | `af guardrails status` na raiz real | — | VM | I1 `active`; I2–I7 com pendências (2.3–2.7); `evolution_allowed: false` |
+| T2.2-16 | `uv run pytest` e comando fixo dos guardrails | AC-01, AC-02 | **Windows** | **PENDENTE** (usuário) |
+| T2.2-17 | `uv run pytest` | todos | **Windows (usuário)** | **156 passed, 7 skipped, 1 failed** — `test_paths_policy.py::FileAccessTests::test_g22_07b_short_names_resolved` (caminho curto 8.3 classificado como `outside_root`) |
+| T2.2-18 | Comando fixo dos guardrails | I1–I7 | **Windows (usuário)** | **21 passed, 7 skipped** |
+| T2.2-19 | Correção 8.3: `security/paths.py` expande nomes curtos do caminho literal com `GetLongPathNameW` (sem seguir links; falha => negar) ; suíte completa | G22-07b | VM 3.10 | 164 OK (10 pulados); lógica do ramo Windows exercitada por simulação fora do repositório (curto válido permitido; link negado; falha de resolução negada). **Revalidação no Windows: PENDENTE (usuário)** |
+
+## Validação da Fase 2.2 no Windows (2026-09-27) — base `683b9e2` · implementação ainda não commitada
+
+Ambiente: **Windows real** do usuário, `D:\Claude\app-factory`, `uv run` com **CPython 3.13.14** e pytest 9.1.1 (evidências no disco: `.venv/pyvenv.cfg` com `version_info = 3.13.14`, `uv = 0.12.12`; `pytest-9.1.1.dist-info`; bytecode `*.cpython-313-pytest-9.1.1.pyc`). Resultados informados pelo operador.
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V2.2-01 | `uv run pytest` (após a correção 8.3) | Windows | **157 passed, 7 skipped, 0 failed** (87,02 s). Os 7 pulados são exatamente as verificações `pending` do manifesto dos guardrails (D-0048); G22-48/49 (pytest) e G22-07b (nomes 8.3) executaram |
+| V2.2-02 | `uv run python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails` | Windows | **21 passed, 7 skipped, 0 failed** (4,27 s) |
+| V2.2-03 | Correção Windows 8.3 (T2.2-19) | Windows | **validada**: `tests/unit/test_paths_policy.py` passou integralmente, incluindo `test_g22_07b_short_names_resolved` (falha registrada em T2.2-17) |
+| V2.2-04 | `git diff --check` | Windows | **sem erro**. Único aviso: `warning: in the working copy of 'tools/diagnostics/measure-hardware.ps1', LF will be replaced by CRLF the next time Git touches it` — normalização de final de linha; arquivo não alterado pela 2.2 (`.gitattributes` define `*.ps1 eol=crlf` e a cópia de trabalho está em LF) |
+| V2.2-05 | Critérios AC-01 e AC-02 (antes PENDENTES em T2.2-16) | Windows | **OK** |
+| V2.2-06 | `git diff --check` · `git status --short` após esta consolidação documental | VM | ver `COMMAND_LOG.md`; nenhuma alteração de código, teste ou configuração |

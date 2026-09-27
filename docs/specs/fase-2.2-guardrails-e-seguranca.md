@@ -1,6 +1,6 @@
 # Fase 2.2 — Guardrails e segurança de execução · Especificação executável
 
-**Status:** especificação pronta; **decisões bloqueantes aprovadas e aplicadas em 2026-09-27** (P-01→D-0048, P-02→D-0049, P-03→D-0050, P-05→D-0051, P-06→D-0052, P-07→D-0053, P-15→D-0054). Pendências não bloqueantes (P-04, P-08…P-14) continuam abertas (§9). **Nada foi implementado.**
+**Status:** especificação pronta; **decisões bloqueantes aprovadas e aplicadas em 2026-09-27** (P-01→D-0048, P-02→D-0049, P-03→D-0050, P-05→D-0051, P-06→D-0052, P-07→D-0053, P-15→D-0054). Pendências não bloqueantes (P-04, P-08…P-14) continuam abertas (§9). **Implementação da Fase 2.2 realizada e validada no Windows** (base `683b9e2`: `uv run pytest` 157 passed, 7 skipped; guardrails 21 passed, 7 skipped), **ainda pendente de commit**; decisões D-0048 a D-0057 (escolhas provisórias da implementação em D-0055; P-11 decidida em D-0056 e P-08 em D-0057).
 **Base:** commit `b0a80e5` (Fase 2.1 validada, CP-0004). **Data:** 2026-09-26.
 **Fontes normativas:** `AGENTS.md`, `DECISIONS.md` (D-0021, D-0022, D-0026 a D-0029, D-0031, D-0035 a D-0047), `RESOURCE_POLICY.md`, `docs/architecture/01` §0/§13/§18/§19, `04` §3–4, `05` §6/§9, `08` (inteiro), `09`, `10`, `12` §1/§6/§8/§11/§12/§14, `13` §8–9, `14`, `15` §7–10.
 
@@ -27,7 +27,7 @@ A Fase 2.2 implementa **somente código confiável que decide e bloqueia** (pol�
 | E7 | Integração com o Job Manager: bloqueio por violação (`BLOCKED(policy_violation)`), espera por sandbox (`WAITING(resources)`), STOP de job/fábrica interrompendo execução, registro do resultado | [ARQ] 08 §3, §4.4, §9; [2.1] |
 | E8 | Toolbox mínimo **somente** para os caminhos de execução e arquivo usados pela 2.2 (`toolbox/fs.py`, `toolbox/shell.py`) | [ARQ] 10; escopo fixado por **D-0050** (só `fs.py` e `shell.py`; resto na 2.8) |
 | E9 | `tests/guardrails/` I1–I7 com `pytest.ini` próprio, executada pelo comando fixo com `--noconftest` | [ARQ] 08 §5.3(4), 09 §1, 14 (2.2); pendências no manifesto conforme **D-0048** |
-| E10 | Matriz de autorização por papel (`user`/`runner`/`ui`) e emissão/verificação de token **em memória** (sem API, sem arquivo com ACL) | [ARQ] 08 §8, 12 §11; **opcional, depende de P-08** |
+| E10 | Matriz de autorização por papel (`user`/`runner`/`ui`) e emissão/verificação de token **em memória** (sem API, sem arquivo com ACL) | [ARQ] 08 §8, 12 §11; **aprovado com escopo limitado (D-0057)**: sem API, daemon, arquivo de token, ACL ou aplicação operacional |
 | E11 | CLI mínima: `af guard check-diff`, `af guard check-path`, `af audit verify`, `af guardrails run` | [PROP] necessária para os critérios de aceite automáticos |
 
 ### 1.3 Fora do escopo (proibido nesta fase)
@@ -42,7 +42,7 @@ Criar o usuário `afrunner` · alterar ACLs (`security/acl.py` fica para a 2.6) 
 | I2 checkpoints | criação/restauração/imutabilidade [2.1] exercitadas por guardrail | checkpoint de task/marco (2.7) |
 | I3 rollback | — | 2.7 |
 | I4 limites | especificação S1h/S2 ≤ tetos do `RESOURCE_POLICY.md`; 1 RUNNING/projeto [2.1] | `resources.yaml`, modos (2.3) |
-| I5 segurança | caminhos protegidos, diff guard, CommandPolicy, redação, ambiente limpo, seleção de sandbox, separação de tokens (se P-08) | ACL do `afrunner` e S1h/S2 reais (2.6) |
+| I5 segurança | caminhos protegidos, diff guard, CommandPolicy, redação, ambiente limpo, seleção de sandbox, separação de tokens (só matriz e registro em memória, D-0057) | ACL do `afrunner` e S1h/S2 reais (2.6) |
 | I6 STOP | STOP persistente, arquivo não libera, liberação só confirmada, interrupção de execução com `terminate` ≤ T0 + 30 s e fim ≤ T0 + 40 s, T0 persistido (D-0054; contrato + dublê de teste) | Job Object mata tudo (2.4/2.6); passo confiável em processo que ignore `should_stop` (KI-0019) |
 
 Regra (D-0048): as invariantes/partes pendentes ficam `pending:<fatia>` em `tests/guardrails/MANIFEST.json`. **`pending` nunca significa aprovação**: nenhum portão que dependa dos guardrails aprova com pendências, e o **Evolution só pode ser habilitado quando I1–I7 estiverem todas `active`**.
@@ -62,7 +62,7 @@ Regra (D-0048): as invariantes/partes pendentes ficam `pending:<fatia>` em `test
 | S1h (especificação) | `src/appfactory/security/sandbox/s1h_runner_user.py` | `S1hLaunchSpec` (dados); `run()` → `SandboxUnavailable` | [P] |
 | S2 (especificação) | `src/appfactory/security/sandbox/docker.py` | `DockerSpec` (argumentos); `run()` → `SandboxUnavailable` | [P] |
 | Auditoria | `src/appfactory/logs/audit.py` | `append`, `verify_chain` | [P] (`logs/**`) |
-| Autorização (opcional) | `src/appfactory/core/auth.py` | papéis, matriz de rotas, tokens em memória | [P] — P-08 |
+| Autorização (escopo limitado) | `src/appfactory/core/auth.py` | papéis, matriz de rotas, tokens em memória (sem aplicação operacional) | [P] — D-0057 |
 | Toolbox mínimo | `src/appfactory/toolbox/fs.py`, `toolbox/shell.py` | operações de arquivo guardadas; `exec_untrusted` (política → seleção → journal → sandbox → resultado) | [P] — D-0050 |
 | Integração Job Manager | `src/appfactory/jobs/manager.py`, `executor.py`, `handlers.py` (mudanças aditivas) | `hold_attempt`, STOP da fábrica no `should_stop`, auditoria do STOP, contexto de execução | [P] desde D-0051 — alterados só em sessão de desenvolvimento dirigida pelo usuário (`AGENTS.md` §3.15), com registro |
 | Guardrails | `tests/guardrails/**` | I1–I7 + manifesto | [P] |
@@ -143,7 +143,7 @@ O STOP da 2.1 permanece como está: `factory_stop` persistido antes de tudo; fla
 3. STOP do job durante execução ⇒ cancelamento da execução ⇒ `_graceful_stop` existente (checkpoint `stop`, `finish_stop`).
 4. STOP da fábrica durante execução ⇒ cancelamento ⇒ `_pause_factory` existente (checkpoint `pause`, `PAUSED(factory_stop)`).
 5. `stop_factory` e `resume_factory` gravam também em `audit.jsonl` (08 §9 "Auditoria").
-6. Violação de integridade dos próprios guardrails (lista protegida ausente/inválida, cadeia de auditoria quebrada na partida) ⇒ `stop_factory(reason="guardrail", actor="system")` — ver P-11.
+6. Violação de integridade dos próprios guardrails (lista protegida ausente/inválida, cadeia de auditoria quebrada na partida): **na 2.2 (D-0056)** ⇒ falha fechada, nenhuma execução, **sem** STOP global (provisório; a cadeia é verificada manualmente por `af audit verify`); **na 2.4 (obrigatório, D-0056)** ⇒ verificação antes de qualquer execução real e `stop_factory(reason="guardrail", actor="system")` em caso de falha.
 
 ---
 
@@ -157,7 +157,7 @@ O STOP da 2.1 permanece como está: `factory_stop` persistido antes de tudo; fla
 | pytest (só dev, `dependency-groups.dev`) | teste | Windows sim; VM não (PyPI bloqueado) — testes compatíveis com `unittest` |
 | Parser de YAML | biblioteca | **não existe na biblioteca padrão** ⇒ arquivos `.yaml` no subconjunto JSON lidos com `json` (D-0049) |
 | Resource Manager (admissão S2, modo FG/BG/BATTERY) | fatia 2.3 | ausente ⇒ entra como parâmetro nos testes |
-| Daemon, Job Object raiz, API (tokens reais) | 2.4 / D-0042 | ausentes ⇒ P-08, KI-0019 |
+| Daemon, Job Object raiz, API (tokens reais) | 2.4 / D-0042 | ausentes ⇒ autorização só em memória (D-0057), KI-0019 |
 | `afrunner`, ACLs, Docker | 2.6 (usuário, R3) | ausentes ⇒ sandboxes falham fechados |
 | Aprovações (`af approve`) | 2.6 | ausentes ⇒ R2/R3 negados |
 
@@ -182,11 +182,11 @@ Nenhuma dependência de execução nova (D-0042, D-0049).
 | `src/appfactory/security/sandbox/docker.py` | `DockerSpec`, `DockerSandbox.run` → `SandboxUnavailable` |
 | `src/appfactory/logs/audit.py` | E6 |
 | `src/appfactory/toolbox/__init__.py`, `toolbox/fs.py`, `toolbox/shell.py` | E8 (D-0050) |
-| `src/appfactory/core/auth.py` | E10 (se P-08 aprovar) |
+| `src/appfactory/core/auth.py` | E10 (D-0057, escopo limitado) |
 | `tests/guardrails/__init__.py`, `tests/guardrails/pytest.ini` | `[pytest]` com `pythonpath = ../../src` e `addopts = -p no:cacheprovider` |
 | `tests/guardrails/MANIFEST.json` | invariante → arquivo → `active`/`pending:<fatia>` + módulo esperado (D-0048) |
 | `tests/guardrails/test_logging_invariants.py` (I1), `test_checkpoint_invariants.py` (I2), `test_rollback_invariants.py` (I3), `test_resource_limits.py` (I4), `test_security_invariants.py` (I5), `test_stop_mechanisms.py` (I6), `test_human_approval.py` (I7), `test_manifest.py` | nomes de 09 §1 |
-| `tests/unit/test_paths_policy.py`, `test_diff_guard.py`, `test_command_policy.py`, `test_sandbox_selection.py`, `test_audit.py`, `test_auth.py` (P-08) | unidade |
+| `tests/unit/test_paths_policy.py`, `test_diff_guard.py`, `test_command_policy.py`, `test_sandbox_selection.py`, `test_audit.py`, `test_auth.py` (D-0057) | unidade |
 | `tests/integration/test_exec_pipeline.py`, `test_guardrails_command.py`, `test_cli_guard.py` | integração |
 | `tests/fakes/sandbox.py` | `FakeSandbox` — **só em `tests/`**, nunca registrado em `src/` |
 | `docs/runbooks/seguranca.md` | operação: verificar diff, verificar auditoria, rodar guardrails |
@@ -331,7 +331,7 @@ def exec_untrusted(ctx: StepContext, req: CommandRequest, sandboxes, policy) -> 
 
 Pipeline de `exec_untrusted`: STOP da fábrica? → `evaluate` → `select_sandbox` → (violação/indisponível ⇒ `hold_attempt`) → `journal_intent` → `sandbox.run(cancel=…)` (prazos do T0 persistido, D-0054) → redigir/gravar saídas → `journal_result` → log/auditoria. Violação de caminho: 1ª ⇒ negar + `security.violation`; reincidência ⇒ `BLOCKED(policy_violation)` (P-12).
 
-### 5.7 Autorização (`core/auth.py`, P-08)
+### 5.7 Autorização (`core/auth.py`, D-0057 — escopo limitado)
 
 ```python
 class Role(str, Enum): USER = "user"; RUNNER = "runner"; UI = "ui"
@@ -344,6 +344,8 @@ def authorize(p: Principal, method: str, route: str, target_job: str | None, con
 ```
 
 Matriz = 12 §11. `POST /stop`: qualquer papel. `POST /stop/release` e `POST /approvals/{id}`: só `user` **e** `confirmation_ok`. `runner`: só o próprio job. S1h/S2: nenhum token (verificado no ambiente do `S1hLaunchSpec`/`DockerSpec`).
+
+**Não implementado na 2.2 (D-0057):** API local, daemon integrado, arquivo persistente de tokens (`user.token`), ACL, autenticação operacional completa e aplicação da autorização a qualquer API. A aplicação operacional fica para a fatia que implementar a API/daemon.
 
 ### 5.8 APIs do Job Manager consumidas (2.1) — nada duplicado
 
@@ -451,7 +453,7 @@ Legenda de ambiente: todos rodam em Linux (unittest) e Windows (`uv run pytest`)
 | ID | Objetivo | Pré-condições | Ação | Resultado esperado |
 | --- | --- | --- | --- | --- |
 | G22-46 | Cadeia de hashes | `audit.jsonl` vazio | 100 `append` de 4 threads e 2 processos; alterar 1 linha; reordenar; truncar o fim | íntegra antes; alteração/reordenação detectadas no índice certo; truncamento do fim só detectado se P-13 aprovar a âncora |
-| G22-47 | Matriz de papéis (P-08) | registro em memória | `runner` aprova/libera/cria/lê outro job; `ui` aprova/libera; `user` libera sem confirmação; token expirado; comparação | todos negados; `user`+confirmação permitido; `hmac.compare_digest` usado |
+| G22-47 | Matriz de papéis (D-0057) | registro em memória | `runner` aprova/libera/cria/lê outro job; `ui` aprova/libera; `user` libera sem confirmação; token expirado; comparação | todos negados; `user`+confirmação permitido; `hmac.compare_digest` usado |
 
 ### H. Suíte de guardrails
 
@@ -520,16 +522,16 @@ Candidatos a KI novos (registrar só se o usuário aprovar): P-13 (truncamento d
 | P-05 | A lógica que garante STOP/imutabilidade está em arquivos **não** protegidos: `jobs/manager.py`, `jobs/store.py` (triggers, `factory_stop`), `jobs/executor.py`, `jobs/states.py`, `jobs/handlers.py` (porta da injeção de falhas), `core/paths.py`, `core/clock.py`, `core/procinfo.py`, `cli/main.py` (código de confirmação) | 08 §5.1 × código 2.1 | (a) ampliar 08 §5.1 (decisão); (b) manter e confiar nos guardrails comportamentais I2/I6 | **DECIDIDA — D-0051** (aprovada em 2026-09-27): (a) para `store.py`, `manager.py`, `executor.py`, `states.py`, `cli/main.py`; guardrails continuam como 2ª defesa |
 | P-06 | `10-diretorios.md` marca todo `config/` como [P]; 08 §5.1 lista só `policies/**`, `resources`, `providers`, `models`, `agents/**` (fica de fora `factory.yaml`); o pedido fala em `config/*.yaml` | 10 × 08 | (a) `config/**`; (b) manter a lista de 08 | **DECIDIDA — D-0052** (aprovada em 2026-09-27): (a) — o mais restritivo, alinhado a 10 e ao pedido |
 | P-07 | Os padrões de 08 §5.1 são do repositório da fábrica; projetos gerados legitimamente têm `pytest.ini`, `conftest.py`, `.gitignore`. 08 §5.3(3) manda verificar "todo diff proposto por agente" | 08 §5.1 × §5.3 | (a) lista completa só no repositório da fábrica; em projetos: `.git/**`, `.appfactory/**`, symlink/gitlink e escopo `writes`; (b) lista completa em todo repositório | **DECIDIDA — D-0053** (aprovada em 2026-09-27): (a) |
-| P-08 | Tokens dependem da API (FastAPI adiado, D-0042) e do daemon (2.4); a 2.6 prevê "tokens por papel"; o arquivo `user.token` exige ACL (proibido agora) | 08 §8 × D-0042 × 14 | (a) na 2.2 só matriz de autorização e registro em memória (§5.7); (b) tudo na 2.6 | (a) |
+| P-08 | Tokens dependem da API (FastAPI adiado, D-0042) e do daemon (2.4); a 2.6 prevê "tokens por papel"; o arquivo `user.token` exige ACL (proibido agora) | 08 §8 × D-0042 × 14 | (a) na 2.2 só matriz de autorização e registro em memória (§5.7); (b) tudo na 2.6 | **DECIDIDA — D-0057** (aprovada em 2026-09-27): opção (a) com escopo limitado — matriz de autorização e registro de tokens em memória (§5.7); **sem** API, daemon, arquivo de token, ACL ou aplicação operacional; aplicação completa na fatia que implementar a API/daemon |
 | P-09 | Onde ficam os limites configuráveis do S1h: 08 diz "configurável, teto no RESOURCE_POLICY", mas `resources.yaml` (05 §9) não tem seção de sandbox; e o que fazer quando S1h é exigido mas não existe (escalar para S2, mais restrito, ou bloquear) | 08 §4.2 × 05 §9; 08 §4.4 | limites: (a) seção `sandbox:` no `resources.yaml` (2.3) e constantes ≤ teto na 2.2; (b) arquivo novo. Indisponível: (a) escalar para S2 se disponível; (b) sempre `BLOCKED` | limites (a); indisponível: decisão do usuário (14 já prevê "usar só S2" como alternativa) |
 | P-10 | Casos fora da tabela 08 §4.3 (`uv pip`, `uv sync`, `yarn`, `pnpm`, `npx` que baixa pacote) e endurecimentos/imagem do S2 não definidos | 08 §4.3–4.4 | (a) padrão seguro S2 para o que não está na tabela; extras do Docker como proposta; (b) negar | (a) |
-| P-11 | 08 §9 prevê STOP por "guardrail violado", sem dizer quais violações acionam STOP da fábrica × só `BLOCKED` da task | 08 §3 × §9 | (a) STOP só por falha de integridade dos mecanismos (lista protegida inválida, auditoria quebrada, `factory_stop` ilegível); violações de agente ⇒ `BLOCKED`; (b) toda violação ⇒ STOP | (a) |
+| P-11 | 08 §9 prevê STOP por "guardrail violado", sem dizer quais violações acionam STOP da fábrica × só `BLOCKED` da task | 08 §3 × §9 | (a) STOP só por falha de integridade dos mecanismos (lista protegida inválida, auditoria quebrada, `factory_stop` ilegível); violações de agente ⇒ `BLOCKED`; (b) toda violação ⇒ STOP | **DECIDIDA — D-0056** (aprovada em 2026-09-27): na 2.2, perda de integridade dos guardrails ⇒ falha fechada, sem STOP global (provisório; `af audit verify` manual); **na 2.4**, verificação de integridade antes de qualquer execução real e STOP da fábrica obrigatório em caso de falha |
 | P-12 | "Reincidência" (08 §3) não definida | 08 §3 | (a) 2ª violação no mesmo job; (b) 2ª na mesma tentativa; (c) 1ª já bloqueia | (a); diff protegido bloqueia na 1ª (08 §5.3) |
 | P-13 | A cadeia `prev_hash` não detecta truncamento do fim do `audit.jsonl` | 08 §10 | (a) âncora: hash da última linha também gravado no SQLite (evento append-only); (b) aceitar como risco | (a), sem tabela nova |
 | P-14 | Lacuna de segurança não coberta pela arquitetura: o Toolbox roda `git` como usuário principal dentro de worktree gravável por `afrunner`; o arquivo `.git` do worktree ou configurações podem apontar para *hooks* ⇒ código não confiável executado como usuário principal | 08 §4.1 × §4.2 | (a) git confiável sempre com `-c core.hooksPath=<vazio>`, `core.fsmonitor=false`, `GIT_CONFIG_NOSYSTEM=1`, verificação do conteúdo de `.git` antes de cada chamada; (b) só `--no-verify` | (a) — registrar como decisão de segurança |
 | P-15 | I6 exige parar tudo em ≤ 40 s, mas a detecção por heartbeat (15 s) + carência (30 s) + kill (10 s) pode chegar a 55 s; não está definido de quando se mede | 09 I6 × 01 §0 × 15 | (a) medir desde a persistência do STOP e sondar STOP localmente a cada ≤ 1 s (detecção ≤ 1 s + 30 + 10 > 40 ainda); (b) reduzir a carência para 29 s; (c) medir desde a chegada do sinal ao runner | **DECIDIDA — D-0054** (aprovada em 2026-09-27): opção (a) com prazos ancorados no T0 persistido — `terminate` ≤ T0 + 30 s, encerramento total ≤ T0 + 40 s, cobrados pelo código confiável supervisor; sondagem ≤ 1 s; prazo efetivo = menor entre "T0 + 30 s" e "detecção + 30 s"; números de 01 §0 inalterados |
 
-As pendências bloqueantes (**P-01, P-02, P-03, P-05, P-06, P-07, P-15**) foram **decididas** (D-0048 a D-0054) e aplicadas à documentação em 2026-09-27. Continuam abertas, sem bloquear o início: P-04, P-08, P-09, P-10, P-11, P-12, P-13, P-14.
+As pendências bloqueantes (**P-01, P-02, P-03, P-05, P-06, P-07, P-15**) foram **decididas** (D-0048 a D-0054) e aplicadas à documentação em 2026-09-27. Continuam abertas, sem bloquear o início: P-04, P-08, P-09, P-10, P-11, P-12, P-13, P-14. **Atualização (2026-09-27):** P-11 decidida em D-0056 e P-08 decidida em D-0057; continuam abertas P-04, P-09, P-10, P-12, P-13 e P-14.
 
 ---
 
@@ -543,5 +545,5 @@ As pendências bloqueantes (**P-01, P-02, P-03, P-05, P-06, P-07, P-15**) foram 
 6. **CommandPolicy:** `commands.yaml`, `security/command_policy.py`, `clean_env`; G22-19, 28…31.
 7. **Sandbox (contrato, seleção, especificações S1h/S2 fail-closed):** G22-32…36.
 8. **Integração com o Job Manager + Toolbox mínimo:** `hold_attempt`, `should_stop` com STOP da fábrica, `toolbox/fs.py`, `toolbox/shell.py`, dublê em `tests/fakes/`; G22-15, 16, 20, 27, 37…45.
-9. **Autorização (se P-08):** `core/auth.py`; G22-47.
+9. **Autorização (D-0057, escopo limitado):** `core/auth.py`; G22-47.
 10. **Fechamento:** ativar no manifesto os guardrails cobertos; regressão Linux; `uv run pytest` e comando fixo no Windows (usuário); `docs/runbooks/seguranca.md`; arquivos de estado; checkpoint CP-0005.
