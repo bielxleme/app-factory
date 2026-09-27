@@ -4,6 +4,8 @@ Legenda: **[V]** versionado no Git da fábrica · **[I]** ignorado · **[P]** ca
 
 **Fase 2.1 (2026-09-26):** existem `pyproject.toml`, `pytest.ini`, `.python-version`, `src/appfactory/{core,jobs,checkpoints,logs,cli}/`, `tests/{unit,integration}/`, `docs/runbooks/job-manager.md`. O restante da árvore continua planejado.
 
+**Revisão 2.2 (2026-09-27, documentação; nada implementado):** `config/**` inteiro protegido (D-0052) e escrito no subconjunto JSON (D-0049); núcleo do Job Manager, relógio/vida e CLI protegidos (D-0051); Toolbox mínimo (`fs.py`, `shell.py`) previsto para a fatia 2.2 (D-0050); `docs/specs/` com especificações de fatia.
+
 **Revisão 1.1 (2026-09-26):** estado operacional em `.appfactory/runtime/`, worktree de integração, arquivos de autenticação/STOP/instância, `pytest.ini` protegido.
 
 ```
@@ -16,7 +18,7 @@ D:\Claude\app-factory\
 ├── pytest.ini                                   [V][P] (F2) única configuração do pytest
 ├── .gitignore  .gitattributes                   [V][P]
 │
-├── config/                                      [V][P] (F2) configuração SEM segredos
+├── config/                                      [V][P] (F2) configuração SEM segredos; toda a pasta é protegida (D-0052); `.yaml` no subconjunto JSON (D-0049)
 │   ├── factory.yaml            portas, caminhos, workspace padrão
 │   ├── resources.yaml          limites (espelho executável do RESOURCE_POLICY.md)
 │   ├── models.yaml             catálogo, local_allowlist (modelos verificados) e perfis
@@ -30,8 +32,9 @@ D:\Claude\app-factory\
 │       └── protected-paths.yaml
 │
 ├── src/appfactory/                              [V] (F2+)
-│   ├── core/          daemon.py, api.py (FastAPI), auth.py [P], stop.py [P], instance.py [P], eventbus.py, config.py, ids.py, clock.py (tempo ativo)
-│   ├── jobs/          manager.py, scheduler.py, state_machine.py, dag.py, leases.py [P], locks.py [P], integrator.py, recovery.py [P], jobobjects.py
+│   ├── core/          daemon.py, api.py [P] (FastAPI), auth.py [P], stop.py [P], instance.py [P], eventbus.py, config.py, ids.py, clock.py [P] (tempo ativo), paths.py [P], procinfo.py [P]
+│   ├── jobs/          manager.py [P], store.py [P], executor.py [P], states.py [P], handlers.py [P], errors.py, scheduler.py, state_machine.py [P], dag.py,
+│   │                  leases.py [P], locks.py [P], integrator.py, recovery.py [P], jobobjects.py [P]
 │   ├── resources/ [P] manager.py, policy.py, modes.py, gpu_accounting.py, probes/{windows.py, nvidia.py, runtime_local.py, linux.py}
 │   ├── routing/       model_router.py, provider_router.py [P], budget.py [P], model_registry.py [P], health.py,
 │   │                  providers/{base.py, ollama.py, openai_compat.py, tool.py}
@@ -44,19 +47,20 @@ D:\Claude\app-factory\
 │   ├── handoff/       generator.py, templates/
 │   ├── security/ [P]  permissions.py, command_policy.py, approvals.py, secrets.py, paths.py, diff_guard.py, acl.py,
 │   │                  sandbox/{s1h_runner_user.py, docker.py}
-│   ├── toolbox/ [P]   fs.py, shell.py, git.py, web.py, browser.py, db.py, journal.py
-│   └── cli/           main.py  (comando "af")
+│   ├── toolbox/ [P]   fs.py, shell.py (mínimos na fatia 2.2, D-0050), git.py, web.py, browser.py, db.py, journal.py (fatia 2.8)
+│   └── cli/           main.py [P] (comando "af")
 │
 ├── tests/                                       [V] (F2+)
 │   ├── unit/  integration/  fixtures/
-│   └── guardrails/ [P] invariantes I1–I7 + pytest.ini próprio (rodado com --noconftest)
+│   └── guardrails/ [P] invariantes I1–I7 + pytest.ini próprio (rodado com --noconftest) + MANIFEST.json (active/pending, D-0048)
 ├── evals/                                       [V][P] (F-evo) tarefas de referência
 ├── evolution/                                   [V] (F-evo)
 │   ├── proposals/EP-NNNN.md
 │   └── reports/EP-NNNN.md
 ├── docs/
 │   ├── architecture/   esta especificação   [V][P]
-│   └── runbooks/       operação (iniciar/parar/recuperar) [V] (F2+)
+│   ├── runbooks/       operação (iniciar/parar/recuperar) [V] (F2+)
+│   └── specs/          especificações executáveis de fatia (ex.: fase-2.2-guardrails-e-seguranca.md) [V]
 ├── tools/diagnostics/  measure-hardware.ps1 [V][P] (F1) utilitários de diagnóstico (não é o Toolbox)
 ├── scripts/            scripts de desenvolvimento [V] (F2+)
 │

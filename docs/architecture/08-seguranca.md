@@ -2,6 +2,8 @@
 
 **Revisão 1.1 (2026-09-26):** reestruturado pela revisão técnica da Fase 1 (itens N1 e N2). Decisões: D-0026 a D-0029. Diagramas: `13-diagramas.md` §8 e §9.
 
+**Revisão 2.2 (2026-09-27):** formato dos arquivos de configuração (D-0049), lista protegida ampliada com o núcleo do Job Manager, a CLI e `config/**` (D-0051, D-0052), alcance fábrica × projetos gerados (D-0053), guardrails pendentes (D-0048) e prazos do STOP medidos desde o T0 persistido (D-0054).
+
 ## 0. Princípio central: código gerado é NÃO CONFIÁVEL
 
 | Classe de confiança | O que é | Onde pode executar |
@@ -35,7 +37,7 @@ Ações **proibidas** mesmo com pedido (o agente devolve ao usuário): inserir s
 
 ## 3. Permissões (capabilities por agente)
 
-Arquivo `config/policies/permissions.yaml` (versionado e protegido, §5). Exemplo:
+Arquivo `config/policies/permissions.yaml` (versionado e protegido, §5). Formato: arquivos `.yaml` da fábrica são escritos no **subconjunto JSON** do YAML 1.2, sem comentários, e lidos por leitor protegido que recusa qualquer outra sintaxe (D-0049); o exemplo abaixo é **ilustrativo** (conteúdo normativo, sintaxe não). Exemplo:
 
 ```yaml
 coder:
@@ -113,8 +115,9 @@ Sem Docker disponível ou sem RAM para a VM (admissão própria ≥ 3 GB, 05 §4
 
 | Grupo | Caminhos |
 | --- | --- |
-| Políticas e limites | `config/policies/**`, `config/resources.yaml`, `config/providers.yaml`, `config/models.yaml`, `config/agents/**` |
-| Código de aplicação de segurança | `src/appfactory/security/**`, `src/appfactory/toolbox/**`, `src/appfactory/core/auth.py`, `src/appfactory/core/stop.py`, `src/appfactory/core/instance.py` |
+| Políticas, limites e configuração | `config/**` — toda a pasta, inclusive `factory.yaml`, `policies/**`, `resources.yaml`, `providers.yaml`, `models.yaml`, `agents/**` e arquivos futuros (D-0052) |
+| Código de aplicação de segurança | `src/appfactory/security/**`, `src/appfactory/toolbox/**`, `src/appfactory/core/auth.py`, `src/appfactory/core/stop.py`, `src/appfactory/core/instance.py`, `src/appfactory/core/api.py` (futuro; D-0051) |
+| Núcleo do Job Manager, relógio/vida e CLI (D-0051) | `src/appfactory/jobs/store.py`, `jobs/manager.py`, `jobs/executor.py`, `jobs/states.py`, `jobs/handlers.py`, `jobs/state_machine.py` (futuro), `jobs/jobobjects.py` (futuro), `src/appfactory/core/paths.py`, `core/clock.py`, `core/procinfo.py`, `src/appfactory/cli/main.py` |
 | Recursos | `src/appfactory/resources/**` |
 | Orçamento e roteamento com efeito de custo/privacidade | `src/appfactory/routing/budget.py`, `src/appfactory/routing/provider_router.py`, `src/appfactory/routing/model_registry.py` |
 | Checkpoints, logs, recuperação | `src/appfactory/checkpoints/**`, `src/appfactory/logs/**` (inclui `audit.py`, `redaction.py`), `src/appfactory/jobs/recovery.py`, `src/appfactory/jobs/leases.py`, `src/appfactory/jobs/locks.py` |
@@ -126,17 +129,23 @@ Sem Docker disponível ou sem RAM para a VM (admissão própria ≥ 3 GB, 05 §4
 
 Regra: a configuração do pytest só pode existir em `pytest.ini` (protegido); é proibido `[tool.pytest*]` no `pyproject.toml`.
 
+Regra (D-0051): **todo módulo que implemente uma invariante I1–I7 (09 §1) entra nesta lista antes de ser criado**.
+
 ### 5.2 A quem se aplica
 
 - **Aplica-se** a todos os agentes da fábrica em execução (runtime) e ao Evolution Agent, sem exceção.
 - **Não impede** sessões de desenvolvimento dirigidas pelo usuário (o próprio usuário ou uma IA trabalhando sob instrução direta dele, conforme `AGENTS.md`), que continuam obrigadas a registrar mudanças em `DECISIONS.md`.
+- **Alcance por repositório (D-0053):**
+  - **Repositório da fábrica** (inclui worktrees `evo/*` e qualquer task que altere a própria fábrica): vale a lista completa de §5.1.
+  - **Projetos gerados** (`workspaces/<projeto>`): são rejeitadas alterações em `.git/**` e `.appfactory/**` do projeto (escritos só por código confiável, como o Handoff System), symlinks (modo `120000`), gitlinks/submódulos (modo `160000`) e qualquer escrita fora do `writes` da task (04 §3). `pytest.ini`, `conftest.py`, `.gitignore` e docs do projeto são permitidos: são código/dado não confiável que só executa em S1h/S2.
+  - O tipo de repositório é determinado **por código confiável**, pelo caminho real do repositório (diretório `.git` comum igual ao da fábrica ⇒ fábrica), **nunca** por campo declarado na TaskSpec ou pelo agente. **Na dúvida, vale a lista completa da fábrica.**
 
 ### 5.3 Camadas de aplicação
 
 1. **Toolbox:** nega escrita/renomeação/remoção em caminho protegido (inclusive via symlink/junction).
 2. **ACL:** `afrunner` não tem acesso algum a esses caminhos (§4.2).
-3. **Revisão de diff automática:** todo diff proposto por agente (task ou EP) é verificado por código confiável (`git diff --name-status --find-renames <base>...<branch>`); qualquer arquivo protegido **adicionado, alterado, renomeado, removido ou referenciado por symlink** ⇒ **rejeição automática** (tarefa `BLOCKED(policy_violation)`; EP `REJECTED`).
-4. **Guardrails:** executados por comando fixo e confiável: `python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails` com o ambiente travado da fábrica; o código candidato não controla a configuração nem os plugins.
+3. **Revisão de diff automática:** todo diff proposto por agente (task ou EP) é verificado por código confiável (`git diff --name-status --find-renames <base>...<branch>`); qualquer arquivo protegido **adicionado, alterado, renomeado, removido ou referenciado por symlink** ⇒ **rejeição automática** (tarefa `BLOCKED(policy_violation)`; EP `REJECTED`). Qual lista se aplica segue §5.2 (D-0053); erro do git ou tipo de repositório indeterminado ⇒ rejeição (falha fechada).
+4. **Guardrails:** executados por comando fixo e confiável: `python -m pytest -c tests/guardrails/pytest.ini --noconftest -p no:cacheprovider tests/guardrails` com o ambiente travado da fábrica; o código candidato não controla a configuração nem os plugins. Guardrails de componentes ainda inexistentes ficam `pending` no manifesto protegido `tests/guardrails/MANIFEST.json`; **`pending` nunca significa aprovação** e o Evolution só pode ser habilitado com I1–I7 todas `active` (D-0048, 09 §2).
 5. **Dependências:** EP que altere `pyproject.toml` (dependências) ou `uv.lock` exige [H] com auditoria do Security Agent.
 
 ## 6. Filesystem
@@ -174,6 +183,7 @@ Regra: a configuração do pytest só pode existir em `pytest.ini` (protegido); 
 | Como acionar | `af stop`; `POST /stop` (qualquer papel, inclusive `runner`); criar o arquivo `.appfactory/STOP`; decisão interna (ex.: guardrail violado). Acionar é sempre permitido (direção segura) |
 | Efeito | Persistido **antes** de qualquer outra ação → modo CRITICAL, nenhum despacho, pausa cooperativa, descarga só dos modelos da fábrica |
 | Como liberar | **Somente** `af resume-factory` com token `user` + confirmação interativa. Apagar o arquivo `STOP` **nunca** libera uma parada registrada |
+| Prazos (D-0054) | **T0** = instante persistido na transação do pedido (`factory_stop.set_at`; para job, `jobs.stop_requested_at`; cancelamento/pausa: timestamp persistido correspondente, ex.: `jobs.cancelled_at`). Código confiável supervisor cobra: **`terminate` em ≤ T0 + 30 s** e **encerramento total em ≤ T0 + 40 s**; quem executa sonda o STOP a cada ≤ 1 s (só antecipa a cooperação). Prazo efetivo = menor entre "T0 + 30 s" e "detecção + 30 s" em tempo ativo |
 | Partida do daemon | Carrega `factory_stop` antes de despachar qualquer coisa; se o arquivo existir e a tabela não, registra a parada |
 | Auditoria | Acionar e liberar vão para `audit.jsonl` |
 

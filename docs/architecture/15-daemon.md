@@ -1,6 +1,6 @@
 # 15 — Ciclo de vida do daemon, leases e runners (N3)
 
-**Criado na revisão 1.1 (2026-09-26).** Decisões: D-0030 e D-0031. Diagrama: `13-diagramas.md` §10. Nada disto está implementado.
+**Criado na revisão 1.1 (2026-09-26).** Decisões: D-0030 e D-0031 (prazos de parada: D-0054). Diagrama: `13-diagramas.md` §10. Nada disto está implementado.
 
 ## 1. Instância única
 
@@ -14,7 +14,7 @@
 | Comando | Efeito |
 | --- | --- |
 | `af daemon start` | Se não houver instância: cria processo destacado (`DETACHED_PROCESS`, `CREATE_NEW_PROCESS_GROUP`, prioridade BELOW_NORMAL, sem janela), espera `GET /health` por até 20 s, informa PID e porta. Se houver: informa e sai com sucesso. |
-| `af daemon stop` | Pausa cooperativa de todos os runners (≤ 40 s), grava estado, remove a trava, encerra. |
+| `af daemon stop` | Pausa cooperativa de todos os runners (`terminate` ≤ T0 + 30 s, encerramento total ≤ T0 + 40 s, com T0 = instante persistido do pedido; D-0054), grava estado, remove a trava, encerra. |
 | `af daemon status` | PID, versão, modo de recursos, jobs ativos, STOP, horário do último heartbeat de cada runner. |
 | `af daemon restart` | `stop` + `start`. |
 | `af daemon install-autostart` / `uninstall-autostart` | Cria/remove a tarefa de logon (§3). **R3**: exige confirmação interativa do usuário. Implementação só na Fase 2. |
@@ -78,7 +78,7 @@ Job raiz "AppFactory-afd" (criado pelo daemon; KILL_ON_JOB_CLOSE)
 
 ## 9. Sequência de parada normal
 
-1. Parar despacho → 2. pedir pausa cooperativa a todos os runners → 3. esperar até 30 s + 10 s → 4. encerrar Job Objects restantes → 5. descarregar só os modelos da fábrica → 6. gravar estado e handoff operacional → 7. liberar mutex e remover a trava.
+1. Parar despacho → 2. pedir pausa cooperativa a todos os runners → 3. esperar até T0 + 30 s (`terminate`) e T0 + 40 s (kill), com T0 persistido antes do passo 1 (D-0054) → 4. encerrar Job Objects restantes → 5. descarregar só os modelos da fábrica → 6. gravar estado e handoff operacional → 7. liberar mutex e remover a trava.
 
 ## 10. Validação futura (Fase 2)
 

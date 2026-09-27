@@ -129,6 +129,8 @@ O Resource Manager **não conhece preços**. Custo é política do Provider Rout
 
 ## 9. Configuração (`config/resources.yaml`, a criar na Fase 2)
 
+Exemplo **ilustrativo** (conteúdo normativo, sintaxe não): o arquivo real é escrito no subconjunto JSON do YAML 1.2, sem comentários, e é protegido (`config/**`) — D-0049, D-0052.
+
 ```yaml
 sampling: { interval_s: 5, cpu_window_s: 60, gpu_window_s: 30, mode_confirmations: 2 }
 idle_threshold_min: 10

@@ -4,7 +4,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
-### Fase 2.1 — Validação pós-commit (2026-09-26) — pendente de commit
+### Fase 2.2 — Especificação e decisões bloqueantes (2026-09-27) — pendente de commit
+
+#### Adicionado
+- `docs/specs/fase-2.2-guardrails-e-seguranca.md` — especificação executável da Fase 2.2 (escopo, componentes, APIs, matriz G22-01…G22-54, critérios AC-01…AC-14, pendências).
+- Decisões D-0048 a D-0054 (pendências bloqueantes P-01, P-02, P-03, P-05, P-06, P-07, P-15).
+
+#### Alterado
+- `docs/architecture/08-seguranca.md` (§3 formato, §5.1 lista ampliada e `config/**`, §5.2 alcance fábrica × projetos, §5.3 falha fechada e `pending`, §9 prazos do STOP), `09-autoevolucao.md` (I6, `pending`, habilitação do Evolution, lista), `10-diretorios.md`, `11-tecnologias.md`, `14-plano-fase-2.md` (2.2, 2.8, 2.9+), `15-daemon.md` (§2, §9), `01-componentes.md` (§0), `05-resource-manager.md` (§9), `README.md` da arquitetura; `AGENTS.md` (§3.15, §5).
+- `DECISIONS.md`: status de D-0028, D-0029, D-0031, D-0042 remetem às novas decisões; cabeçalho da Fase 2.1 deixa de dizer "pendentes de commit".
+- `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`, `TEST_STATUS.md`.
+- Nenhum código, teste ou configuração alterado.
+
+### Fase 2.1 — Validação pós-commit (2026-09-26) — commit `b0a80e5`
 
 #### Alterado
 - `CP-0004-fase2-1.json`: `validated_commit` = `4373c65`, estado `phase_2_1_validated`.

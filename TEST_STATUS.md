@@ -105,3 +105,27 @@ Comando: `PYTHONPATH=src python -m unittest discover -s tests -t .`
 | V2.1-06 | `uv run pytest` a partir da VM do Cowork | VM | **não executável**: o uv tenta baixar o CPython 3.13 do GitHub e a rede da VM recusa (`tunnel error: unsuccessful`). Nada foi criado no repositório (ambiente e cache fora da pasta) |
 | V2.1-07 | `PYTHONPATH=src python3 -m unittest discover -s tests -t .` no commit `4373c65` | VM (Python 3.10.12) | **Ran 58 tests — OK** |
 | V2.1-08 | Artefatos ignorados após a execução no Windows | VM (`git status --ignored`) | `.venv/` e `__pycache__/` presentes e **ignorados** pelo Git; nenhum arquivo de runtime rastreado |
+
+## Fase 2.2 — Especificação (2026-09-26, somente leitura; nada implementado)
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| S2.2-01 | `git status -sb` / `git log --oneline -3` antes da especificação | VM | `## main...origin/main`, limpo; HEAD `b0a80e5` sobre `4373c65` |
+| S2.2-02 | Arquivos rastreados de `src/` × padrões de 08 §5.1 | VM (`git ls-files` + leitura) | Lacuna encontrada: `jobs/manager.py`, `jobs/store.py`, `jobs/executor.py`, `jobs/states.py`, `jobs/handlers.py`, `core/paths.py`, `core/clock.py`, `core/procinfo.py`, `cli/main.py` não são protegidos (registrada como P-05) |
+| S2.2-03 | `config/` existe? | VM (`ls`) | Não existe (esperado; criado na implementação da 2.2) |
+| S2.2-04 | `StepContext.should_stop` observa o STOP da fábrica? | VM (leitura de `executor.py`) | Não — só STOP do job e perda de posse; mudança aditiva prevista na especificação (§2.5) |
+| S2.2-05 | Testes | — | **Não executados** nesta etapa (nenhum código alterado) |
+
+## Fase 2.2 — Aplicação das decisões D-0048 a D-0054 (2026-09-27, somente documentação)
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| S2.2-06 | D-0048 a D-0054 definidas uma vez em `DECISIONS.md`; nenhuma referência a decisão inexistente nos 17 documentos verificados | VM (script Python) | OK |
+| S2.2-07 | Frases obsoletas (esqueletos que "falham", lista antiga de `config/` em 08/09, "30 s + 10 s" sem marco, "não decidida", "não protegidos hoje", estado "aguardando decisões") | VM (script Python) | OK — nenhuma nos documentos normativos e de estado |
+| S2.2-08 | Arquivos de D-0051 presentes em 08 §5.1 e marcados `[P]` em `10-diretorios.md`; `config/**` em 08, 09, 10 e na especificação | VM (script Python) | OK |
+| S2.2-09 | "`pending` nunca é aprovação" e "Evolution só com I1–I7 `active`" em `DECISIONS.md`, `AGENTS.md`, 08, 09, 14, especificação, `HANDOFF.md` | VM (script Python) | OK |
+| S2.2-10 | Prazos do STOP `T0 + 30 s` / `T0 + 40 s` em `DECISIONS.md`, 01, 08, 15 e especificação; nenhuma menção a "40 s" sem T0 em `docs/architecture/` | VM (script Python) | OK — corrigido durante a verificação: T0 de cancelamento/pausa (o `cancel` da 2.1 não grava `stop_requested_at`) passou a ser o timestamp persistido do pedido (ex.: `jobs.cancelled_at`) |
+| S2.2-11 | Regra D-0053 ("na dúvida, fábrica"; tipo de repositório por código confiável) em `DECISIONS.md`, 08 e especificação | VM (script Python) | OK |
+| S2.2-12 | Markdown: blocos de código fechados, tabelas com número de colunas consistente; `git diff --check` | VM | OK |
+| S2.2-13 | Nenhuma mudança em `src/`, `tests/`, `pytest.ini`, `pyproject.toml`, `uv.lock` | VM (`git diff --stat`) | OK — vazio |
+| S2.2-14 | Testes | — | **Não executados** (nenhum código alterado) |

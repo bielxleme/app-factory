@@ -35,7 +35,7 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 12. Nunca gaste dinheiro (provedores pagos) sem aprovação explícita do usuário.
 13. Código gerado por agentes é **não confiável**: nunca o execute como o usuário principal (ver `docs/architecture/08-seguranca.md` §0).
 14. **Estado versionado × operacional:** os arquivos desta pasta raiz, `DECISIONS.md` etc. são o estado **versionado** do desenvolvimento da fábrica e são mantidos pelas sessões de desenvolvimento dirigidas pelo usuário. O estado **operacional** da execução de jobs fica em `.appfactory/runtime/**` e `.appfactory/state/**` (ignorados pelo Git) e nunca deve ser commitado.
-15. Os caminhos protegidos (`08-seguranca.md` §5.1) valem para os agentes em execução da App Factory e para o Evolution Agent; sessões de desenvolvimento dirigidas pelo usuário podem alterá-los, sempre registrando em `DECISIONS.md`.
+15. Os caminhos protegidos (`08-seguranca.md` §5.1) valem para os agentes em execução da App Factory e para o Evolution Agent (lista completa no repositório da fábrica; regras próprias nos projetos gerados, D-0053); sessões de desenvolvimento dirigidas pelo usuário podem alterá-los, sempre registrando em `DECISIONS.md`.
 
 ## 4. Atualização dos arquivos de estado (ao fim de cada sessão/tarefa)
 
@@ -61,3 +61,5 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 - Finais de linha: LF (ver `.gitattributes`).
 - Testes: `uv run pytest` (ou `python -m unittest discover -s tests -t .` com `PYTHONPATH=src`). Nenhuma fase é concluída com teste crítico falhando.
 - Código Python: sem dependências novas sem decisão registrada (D-0042); configuração do pytest só em `pytest.ini`.
+- Arquivos de configuração `.yaml` da fábrica: escritos no **subconjunto JSON** do YAML 1.2, sem comentários, lidos com `json` da biblioteca padrão por leitor protegido que recusa outra sintaxe (D-0049).
+- Guardrails: invariantes sem componente ficam `pending` no manifesto `tests/guardrails/MANIFEST.json`; **`pending` nunca significa aprovação** e o Evolution só pode ser habilitado com I1–I7 todas `active` (D-0048).

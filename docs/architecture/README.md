@@ -1,7 +1,8 @@
 # Arquitetura da App Factory — Índice
 
-**Versão:** 1.1 (Fase 1.1 — revisão e correção documental) · **Data:** 2026-09-26 · **Status:** v1.0 normativa desde o commit `4082457`; revisão 1.1 pendente de commit
+**Versão:** 1.1 (Fase 1.1 — revisão e correção documental) · **Data:** 2026-09-26 · **Status:** v1.0 normativa desde o commit `4082457`; revisão 1.1 commitada (`40d4d79`); revisão 2.2 (decisões D-0048 a D-0054) pendente de commit
 **Revisão 1.1:** corrige os achados N1–N8 da revisão técnica (segurança do código não confiável, infraestrutura protegida, daemon, GPU no WDDM, modelos Ollama, estado operacional, contradições). Decisões D-0026 a D-0039.
+**Revisão 2.2 (2026-09-27):** decisões bloqueantes da Fase 2.2 — guardrails `pending` não aprovam e o Evolution só é habilitado com I1–I7 ativas (D-0048), `.yaml` no subconjunto JSON (D-0049), Toolbox mínimo na 2.2 (D-0050), núcleo do Job Manager/CLI e `config/**` protegidos (D-0051, D-0052), alcance fábrica × projetos gerados (D-0053), prazos do STOP desde o T0 persistido (D-0054). Especificação da fatia: `docs/specs/fase-2.2-guardrails-e-seguranca.md`.
 **Base:** hardware medido em 2026-09-26 16:17 -03:00 (`tools/diagnostics/measure-hardware.ps1`).
 
 Esta pasta é a **especificação normativa** da App Factory. Qualquer IA que for implementar deve segui-la. Mudanças exigem registro em `DECISIONS.md`.

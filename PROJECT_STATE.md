@@ -4,14 +4,15 @@
 | --- | --- |
 | Projeto | App Factory |
 | Inicializado em | 2026-09-26 13:13:26 -03:00 (`git init`) |
-| Último commit | `4373c65` — `feat: add Job Manager foundation (Phase 2.1)` (= `origin/main`) |
+| Último commit | `b0a80e5` — `chore: validate Phase 2.1 checkpoint` (= `origin/main`) |
 | Checkpoints | `CP-0001` (Fase 0) · `CP-0002` (Fase 1, `4082457`) · `CP-0003` (Fase 1.1, `40d4d79`) · `CP-0004` (Fase 2.1, **validado em `4373c65`**) |
-| Fase atual | **Fase 2.1 — Fundação: Job Manager** |
-| Status da fase | **CONCLUÍDA E VALIDADA** |
+| Fase atual | **Fase 2.2 — Guardrails e segurança de execução** |
+| Status da fase | **ESPECIFICAÇÃO PRONTA E DECISÕES BLOQUEANTES APLICADAS** (`docs/specs/fase-2.2-guardrails-e-seguranca.md`; D-0048 a D-0054, 2026-09-27) — implementação ainda não iniciada |
+| Fase anterior | Fase 2.1 — Fundação: Job Manager — **concluída e validada** (CP-0004) |
 | Job Manager | **Implementado e validado** (`src/appfactory/`, somente biblioteca padrão) |
 | Testes | **58 testes passaram no Windows** (`uv run pytest`, CPython 3.13.14, pytest 9.1.1 — informado pelo usuário) e 58/58 em Linux (Python 3.10–3.13) |
-| Próximo estágio | Fase 2.2 — Guardrails (só com nova instrução do usuário) |
-| Última atualização | 2026-09-26 23:20 -03:00 |
+| Próximo estágio | Commit da documentação da 2.2 (usuário); depois implementação da 2.2 na ordem do §10 da especificação — só com nova instrução. Pendências não bloqueantes: P-04, P-08…P-14 |
+| Última atualização | 2026-09-27 00:40 -03:00 |
 
 ## Fase 2.1 — critérios
 

@@ -149,12 +149,12 @@ Decisões do usuário registradas nesta revisão: sandbox opção B (S1 endureci
 ## D-0028 · 2026-09-26 · STOP persistente e em memória
 - **Decisão:** STOP registrado na tabela `factory_stop` (antes de qualquer outra ação) e em memória. Qualquer papel pode acionar; só `af resume-factory` (usuário, com confirmação) libera. O arquivo `.appfactory/STOP` é apenas gatilho: apagá-lo **nunca** libera.
 - **Motivo:** N1.
-- **Status:** aprovada pelo usuário (Fase 1.1). Revisa D-0021.
+- **Status:** aprovada pelo usuário (Fase 1.1). Revisa D-0021. Complementada por D-0054 (prazos do STOP medidos desde o T0 persistido).
 
 ## D-0029 · 2026-09-26 · Infraestrutura protegida ampliada e rejeição automática
 - **Decisão:** lista de caminhos protegidos de `08-seguranca.md` §5.1 (inclui toolbox, resources, budget, provider_router, model_registry, checkpoints, logs/audit, jobs/recovery/leases/locks, core/auth/stop/instance, config de recursos/provedores/modelos/agentes, `pytest.ini`, `conftest.py`, `sitecustomize.py`, `*.pth`, guardrails, evals, normativos e estado versionado). Aplicada em 3 camadas (Toolbox, ACL, verificação de diff). EP ou task cujo diff toque caminho protegido ⇒ **rejeição automática**. Guardrails rodam por comando fixo com `--noconftest`. Vale para agentes em execução e Evolution; não impede sessões de desenvolvimento dirigidas pelo usuário (que registram em `DECISIONS.md`).
 - **Motivo:** N2.
-- **Status:** aprovada pelo usuário (Fase 1.1). Revisa D-0022.
+- **Status:** aprovada pelo usuário (Fase 1.1). Revisa D-0022. Ampliada por D-0051 (núcleo do Job Manager e CLI) e D-0052 (`config/**`); alcance por tipo de repositório definido por D-0053; guardrails pendentes regidos por D-0048.
 
 ## D-0030 · 2026-09-26 · Ciclo de vida do daemon
 - **Decisão:** instância única (mutex `Local\AppFactory-afd-<hash>` + `.appfactory/runtime/afd.lock` com PID e horário de criação); comandos `af daemon start/stop/status/restart`; início automático no logon via Agendador de Tarefas, **somente para o usuário conectado**, sem privilégios elevados; **não** é serviço do Windows nesta fase. A tarefa de logon é criada pelo usuário (`af daemon install-autostart`, R3).
@@ -164,7 +164,7 @@ Decisões do usuário registradas nesta revisão: sandbox opção B (S1 endureci
 ## D-0031 · 2026-09-26 · Leases em tempo ativo, verificação de vida, sono e Job Objects
 - **Decisão:** leases e heartbeats medidos em tempo ativo do sistema (`QueryUnbiasedInterruptTime`); antes de declarar `interrupted`, verificar PID + horário de criação + Job Object; carência de 120 s após retorno do sono; Job Object raiz com `KILL_ON_JOB_CLOSE`; *dead-man switch* nos runners (45 s); nunca duas tentativas vivas da mesma task.
 - **Motivo:** N3 — evitar execução duplicada após sono e órfãos após crash.
-- **Status:** aprovada pelo usuário (Fase 1.1).
+- **Status:** aprovada pelo usuário (Fase 1.1). Complementada por D-0054 (prazos de parada ancorados no T0 persistido).
 
 ## D-0032 · 2026-09-26 · Medição de GPU no Windows/WDDM
 - **Decisão:** não depender de VRAM por processo (medido: `[N/A]`). VRAM da fábrica = `size_vram` dos modelos com posse da fábrica + overhead; VRAM de terceiros = modelos de outras ferramentas no Ollama + diferença do total; margem de medição 512 MiB (mín. 256); uso alheio só medido sem inferência da fábrica (janela de observação de 2 s); heurísticas de tela cheia/D3D e lista de processos. Limite de modelos na GPU passa a ser configuração com teto (`gpu.max_factory_models_loaded: 1`). Validação na fatia 2.3 (KI-0017).
@@ -210,7 +210,7 @@ Decisões do usuário registradas nesta revisão: sandbox opção B (S1 endureci
 
 # Fase 2.1 — Fundação: Job Manager (2026-09-26) · base: commit `97c82c4`
 
-Decisões tomadas durante a implementação. Status: **em vigor no código da Fase 2.1; pendentes de commit**.
+Decisões tomadas durante a implementação. Status: **em vigor no código da Fase 2.1** (commit `4373c65`, validado em `b0a80e5`).
 
 ## D-0040 · 2026-09-26 · Estados STOPPING e STOPPED para o STOP explícito de job
 - **Decisão:** acrescentar aos 9 estados de `03-jobs.md` os estados `STOPPING` (transitório, ocupa a vaga do projeto) e `STOPPED` (parado de forma controlada, não terminal). `RUNNING/PLANNING → STOPPING → STOPPED`; `QUEUED/PAUSED/WAITING/BLOCKED → STOPPED` direto; `STOPPED → QUEUED` só por `af job resume`. O STOP da **fábrica** (kill switch, D-0028) continua separado e leva a `PAUSED(factory_stop)`.
@@ -225,7 +225,7 @@ Decisões tomadas durante a implementação. Status: **em vigor no código da Fa
 ## D-0042 · 2026-09-26 · Fase 2.1 sem dependências de execução
 - **Decisão:** somente biblioteca padrão (`sqlite3`, `argparse`, `dataclasses`, `threading`, `ctypes`). Testes em estilo `unittest`, executáveis também pelo pytest (`pytest.ini`). Typer, Pydantic e FastAPI (11-tecnologias) entram quando a API local e os contratos forem implementados.
 - **Motivo:** o PyPI estava inacessível nos dois ambientes de verificação desta sessão; menos dependências = menos superfície e instalação trivial no Windows.
-- **Status:** em vigor. Não revoga as escolhas de `11-tecnologias.md`, só as adia.
+- **Status:** em vigor. Não revoga as escolhas de `11-tecnologias.md`, só as adia. Complementada por D-0049 (formato dos arquivos de configuração sem dependência de YAML).
 
 ## D-0043 · 2026-09-26 · Escritor único do SQLite: regime transitório
 - **Decisão:** até existir o daemon (2.4), a CLI e os executores gravam pela mesma biblioteca, sempre em transações `BEGIN IMMEDIATE` (serializadas pelo SQLite, `busy_timeout` 30 s). D-0037 (só o daemon escreve) continua sendo o alvo e será aplicado na 2.4.
@@ -251,3 +251,51 @@ Decisões tomadas durante a implementação. Status: **em vigor no código da Fa
 - **Decisão:** o executor só roda handlers registrados no código (`demo.steps` nesta fase); o payload é JSON validado, sem código. Chaves `_faults` (simulação de quedas e falhas) só são aceitas com `AF_ALLOW_FAULT_INJECTION=1`, usado apenas pelos testes.
 - **Motivo:** 08 §0 — nenhuma execução de código vindo de agente/usuário.
 - **Status:** em vigor.
+
+---
+
+# Fase 2.2 — Decisões bloqueantes (2026-09-27) · base: commit `b0a80e5`
+
+Pendências P-01, P-02, P-03, P-05, P-06, P-07 e P-15 da especificação `docs/specs/fase-2.2-guardrails-e-seguranca.md` (§9). Todas **aprovadas pelo usuário em 2026-09-27**. Aplicadas somente à documentação; nada implementado.
+
+## D-0048 · 2026-09-27 · Guardrails pendentes: manifesto protegido; `pending` nunca é aprovação (P-01)
+- **Decisão:** guardrails cujo componente ainda não existe **não falham**: seus testes são pulados com motivo e ficam registrados em `tests/guardrails/MANIFEST.json` (protegido por `tests/guardrails/**`), com cada invariante I1–I7 marcada `active` ou `pending:<fatia>` e o módulo esperado. Um teste de controle (`tests/guardrails/test_manifest.py`) **falha** se: (1) alguma invariante I1–I7 estiver fora do manifesto; (2) um `pending` não indicar fatia e módulo; (3) o módulo do componente já existir e o guardrail continuar `pending`; (4) uma invariante `active` tiver qualquer teste pulado. **`pending` nunca significa aprovação:** nenhum portão que dependa dos guardrails (EP do Evolution, 09 §2) pode aprovar com pendências; o **Evolution Agent só pode ser habilitado quando I1–I7 estiverem todas `active`**. Voltar uma invariante de `active` para `pending` exige decisão humana registrada neste arquivo.
+- **Motivo:** conciliar `14-plano-fase-2.md` ("esqueletos falham até o componente existir") com `AGENTS.md` §5 ("nenhuma fase é concluída com teste crítico falhando"), sem esconder pendências e mantendo o portão fechado.
+- **Alternativas rejeitadas:** `xfail(strict=True)` (esconde falhas pelo motivo errado); suíte falhando de verdade (viola `AGENTS.md` §5 e torna o portão inútil como sinal).
+- **Status:** aprovada pelo usuário (2026-09-27). Revisa `14-plano-fase-2.md` (fatia 2.2); complementa D-0022/D-0029.
+
+## D-0049 · 2026-09-27 · Arquivos de configuração `.yaml` no subconjunto JSON (P-02)
+- **Decisão:** os arquivos de configuração mantêm os nomes `.yaml` definidos na arquitetura, mas são escritos **no subconjunto JSON do YAML 1.2** e lidos com o módulo `json` da biblioteca padrão. O leitor **recusa** tudo que não for JSON válido (falha fechada, sem tentativa de ler "quase YAML") e fica em módulo protegido (`src/appfactory/security/`) para que nenhum agente o substitua por um que devolva política vazia. Não há comentários nesses arquivos. Os exemplos com sintaxe YAML de `05-resource-manager.md` §9 e `08-seguranca.md` §3 passam a ser **ilustrativos** (conteúdo normativo, sintaxe não). Adotar um leitor YAML completo no futuro é decisão separada (os arquivos continuarão válidos).
+- **Motivo:** a biblioteca padrão não lê YAML, `11-tecnologias.md` nunca escolheu biblioteca de YAML e D-0042 proíbe dependências sem decisão; o PyPI está bloqueado na VM de verificação.
+- **Alternativas rejeitadas:** PyYAML (dependência nova, quebra a verificação na VM); renomear para `.json` (mudaria nomes em 05/08/10/12 sem ganho técnico).
+- **Status:** aprovada pelo usuário (2026-09-27). Complementa D-0042; nenhuma dependência nova.
+
+## D-0050 · 2026-09-27 · Toolbox mínimo na Fase 2.2 (P-03)
+- **Decisão:** a fatia 2.2 inclui **somente** `src/appfactory/toolbox/fs.py` (ler, gravar, apagar, renomear com a política de caminhos) e `src/appfactory/toolbox/shell.py` (`exec_untrusted`: STOP → `CommandPolicy` → seleção de sandbox → journal → sandbox → resultado). `git.py`, `web.py`, `browser.py`, `db.py` e o restante do Toolbox ficam para a fatia 2.8. A `CommandPolicy` continua em `src/appfactory/security/`; o Toolbox só a aplica. Na 2.2 os sandboxes de produção (S1h/S2) falham fechados: **o Toolbox não executa código não confiável**.
+- **Motivo:** a arquitetura exige o Toolbox como camada 1 de aplicação (08 §5.3) e ele não estava atribuído a nenhuma fatia; sem ele, STOP e falha durante execução não seriam testáveis na 2.2.
+- **Alternativa rejeitada:** só bibliotecas de política na 2.2 (camada 1 inexistente; testes de execução reduzidos a unidade).
+- **Status:** aprovada pelo usuário (2026-09-27). Revisa `14-plano-fase-2.md` (fatias 2.2 e 2.8).
+
+## D-0051 · 2026-09-27 · Núcleo do Job Manager, CLI e módulos de invariantes são protegidos (P-05)
+- **Decisão:** ampliar `08-seguranca.md` §5.1 com: `src/appfactory/jobs/store.py`, `jobs/manager.py`, `jobs/executor.py`, `jobs/states.py`, `jobs/handlers.py`, `src/appfactory/core/paths.py`, `core/clock.py`, `core/procinfo.py`, `src/appfactory/cli/main.py` e os futuros `jobs/state_machine.py`, `jobs/jobobjects.py` e `core/api.py`. Regra geral: **todo módulo que implemente uma invariante I1–I7 entra na lista antes de ser criado**. Os guardrails comportamentais continuam como segunda defesa.
+- **Motivo:** a lógica que garante STOP, imutabilidade de checkpoints/eventos, confirmação para liberar STOP, escopo de remoção e verificação de vida está nesses arquivos, que não eram protegidos.
+- **Alternativa rejeitada:** confiar só nos guardrails comportamentais (um EP poderia enfraquecer detalhe não coberto por teste).
+- **Impacto:** melhorias nesses arquivos passam a exigir sessão de desenvolvimento dirigida pelo usuário (`AGENTS.md` §3.15); o código da 2.1 não muda.
+- **Status:** aprovada pelo usuário (2026-09-27). Amplia D-0029.
+
+## D-0052 · 2026-09-27 · Toda a pasta `config/` é protegida (P-06)
+- **Decisão:** a linha "Políticas e limites" de `08-seguranca.md` §5.1 passa a ser `config/**` (inclui `factory.yaml`, subpastas e arquivos futuros de qualquer extensão), alinhando 08 com `10-diretorios.md`.
+- **Motivo:** `factory.yaml` define portas, caminhos e o workspace padrão — mudar o workspace desviaria o escopo de escrita da política de arquivos e das ACLs; arquivos novos em `config/` passam a nascer protegidos.
+- **Status:** aprovada pelo usuário (2026-09-27). Amplia D-0029.
+
+## D-0053 · 2026-09-27 · Alcance dos caminhos protegidos: fábrica × projetos gerados (P-07)
+- **Decisão:** a lista completa de `08-seguranca.md` §5.1 vale **no repositório da fábrica** (inclui worktrees `evo/*` do Evolution e qualquer task que altere a própria fábrica). Nos **repositórios de projetos gerados** (`workspaces/<projeto>`), o verificador de diff e o Toolbox rejeitam: alterações em `.git/**` e em `.appfactory/**` do projeto (escritos só por código confiável, como o Handoff System), symlinks (modo `120000`) e gitlinks/submódulos (modo `160000`), e qualquer escrita fora do `writes` da task (04 §3). O tipo de repositório é determinado **por código confiável**, pelo caminho real do repositório (diretório `.git` comum igual ao da fábrica ⇒ fábrica) — **nunca** por campo declarado na TaskSpec ou pelo agente; **na dúvida, vale a lista completa da fábrica**.
+- **Motivo:** projetos gerados têm legitimamente `pytest.ini`, `conftest.py`, `.gitignore`, `README`/docs; o `conftest.py` de um projeto é código não confiável que só executa em S1h/S2 e não dá privilégio novo.
+- **Alternativa rejeitada:** lista completa em todo repositório (bloquearia quase todo projeto Python, inviabilizando a fatia 2.8).
+- **Status:** aprovada pelo usuário (2026-09-27). Complementa D-0029 e 08 §5.2–§5.3.
+
+## D-0054 · 2026-09-27 · Prazos do STOP medidos desde o T0 persistido (P-15)
+- **Decisão:** para STOP da fábrica, STOP/pausa/cancelamento de job e `af daemon stop`, **T0** é o instante gravado no SQLite na transação que registrou o pedido (`factory_stop.set_at`; `jobs.stop_requested_at`; para cancelamento ou pausa, o timestamp persistido correspondente, ex.: `jobs.cancelled_at`). Os prazos são cobrados pelo **código confiável que supervisiona a execução** (na 2.2, o laço de espera de `toolbox/shell.exec_untrusted`; a partir da 2.4/2.6, daemon e Job Object), nunca pelo código executado: **`terminate` em ≤ T0 + 30 s e encerramento total (kill da árvore) em ≤ T0 + 40 s**. A detecção do STOP por quem executa é feita por sondagem a cada **≤ 1 s** e só antecipa a cooperação — não adia os prazos. Proteção contra saltos de relógio: o prazo efetivo é o **menor** entre "T0 + 30 s" e "detecção + 30 s" medida em tempo ativo (15 §4). Os números 30 s, 10 s e 40 s de `01-componentes.md` §0 e 09 I6 não mudam; esta decisão fixa o marco zero. Limitação declarada até a 2.4 (KI-0019): passo de handler confiável executado no próprio processo que não consulte `should_stop` não pode ser morto sem Job Object.
+- **Motivo:** heartbeat de 15 s + carência de 30 s + kill de 10 s poderia chegar a ~55 s se contado da detecção; medir desde a chegada do sinal ao runner enfraqueceria o STOP.
+- **Alternativas rejeitadas:** reduzir a carência para 29 s (muda 01 §0 e continua dependendo da detecção); medir desde a chegada do sinal (enfraquece I6).
+- **Status:** aprovada pelo usuário (2026-09-27). Complementa D-0028 e D-0031; esclarece 09 I6, 01 §0 e 15 §2/§9.
