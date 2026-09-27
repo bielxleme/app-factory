@@ -4,7 +4,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
-### Fase 2.1 — Fundação: Job Manager (2026-09-26) — pendente de commit
+### Fase 2.1 — Validação pós-commit (2026-09-26) — pendente de commit
+
+#### Alterado
+- `CP-0004-fase2-1.json`: `validated_commit` = `4373c65`, estado `phase_2_1_validated`.
+- `TEST_STATUS.md` (T17 e V2.1-01 a V2.1-08), `KNOWN_ISSUES.md` (KI-0018 resolvido), `PROJECT_STATE.md`, `HANDOFF.md`, `TASK_QUEUE.md`, `COMMAND_LOG.md`, `.appfactory/job.json`.
+
+### Fase 2.1 — Fundação: Job Manager (2026-09-26) — commit `4373c65`
+
+- Também no commit: `uv.lock` (gerado pelo `uv` no Windows do usuário).
 
 #### Adicionado
 - `pyproject.toml` (sem dependências de execução, `af` como script), `pytest.ini`, `.python-version` (3.13).

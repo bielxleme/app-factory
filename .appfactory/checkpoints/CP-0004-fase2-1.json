@@ -6,14 +6,19 @@
   "created_at": "2026-09-26T20:05:00-03:00",
   "created_by": "Claude (Cowork)",
   "phase": "2.1",
-  "state": "phase_2_1_implemented_pending_windows_tests_and_commit",
+  "state": "phase_2_1_validated",
   "git": {
     "branch": "main",
     "parent_commit": "97c82c4",
-    "validated_commit": null,
+    "validated_commit": "4373c65",
     "expected_commit_message": "feat: add Job Manager foundation (Phase 2.1)",
     "remote": "https://github.com/bielxleme/app-factory.git",
-    "note": "validated_commit será preenchido no commit seguinte (D-0011)."
+    "note": "validated_commit preenchido na validação pós-commit (D-0011). O commit que contém esta atualização é o seguinte.",
+    "validated_commit_full": "4373c650b084c8ca909f9451bc43e387dced20fb",
+    "validated_commit_message": "feat: add Job Manager foundation (Phase 2.1)",
+    "validated_commit_author": "Gabriel Ximenes",
+    "validated_commit_date": "2026-09-26T23:16:09-03:00",
+    "remote_main_verified": "4373c650b084c8ca909f9451bc43e387dced20fb"
   },
   "acceptance": {
     "crash_resume_complete": "tests/integration/test_acceptance.py::AcceptanceCrashResumeTest::test_create_run_checkpoint_crash_restart_recover_resume_validate_complete — OK",
@@ -25,16 +30,39 @@
     "linux_python_3_11": "58/58 OK",
     "linux_python_3_12": "58/58 OK",
     "linux_python_3_13": "58/58 OK",
-    "windows_uv_run_pytest": "pendente (KI-0018)"
+    "windows_uv_run_pytest": "58 passaram (informado pelo usuário). Evidências no disco: .venv criado pelo uv 0.12.12 com CPython 3.13.14 e pytest 9.1.1; bytecode do pytest 9.1.1 para os 9 módulos de teste; uv.lock commitado.",
+    "revalidation_vm_python_3_10_on_4373c65": "58/58 OK (unittest)",
+    "uv_run_pytest_from_cowork_vm": "não executável: download do Python 3.13 bloqueado pela rede da VM"
   },
-  "decisions": ["D-0040", "D-0041", "D-0042", "D-0043", "D-0044", "D-0045", "D-0046", "D-0047"],
-  "known_issues": ["KI-0018", "KI-0019", "KI-0020"],
-  "schema": {"sqlite_schema_version": 1},
+  "decisions": [
+    "D-0040",
+    "D-0041",
+    "D-0042",
+    "D-0043",
+    "D-0044",
+    "D-0045",
+    "D-0046",
+    "D-0047"
+  ],
+  "known_issues": [
+    "KI-0019",
+    "KI-0020"
+  ],
+  "schema": {
+    "sqlite_schema_version": 1
+  },
   "not_done_on_purpose": [
     "Daemon, Job Objects, API local, tokens",
     "Agentes, sandbox S1h/S2, usuário afrunner",
     "Resource Manager, routers, integração com Ollama",
     "Navegador, mídia, Evolution Agent"
   ],
-  "next_step": "Usuário: uv run pytest no Windows; depois commit. Fase 2.2 (Guardrails) só com nova instrução."
+  "next_step": "Fase 2.2 (Guardrails) — somente com nova instrução do usuário.",
+  "validated_at": "2026-09-26T23:20:00-03:00",
+  "resolved_issues": [
+    "KI-0018"
+  ],
+  "files_added_by_user_commit": [
+    "uv.lock"
+  ]
 }

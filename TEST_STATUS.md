@@ -91,4 +91,17 @@ Comando: `PYTHONPATH=src python -m unittest discover -s tests -t .`
 | T14 | Segredos (padrões de tokens/chaves) | VM | nenhum |
 | T15 | Runtime fora do Git: nenhum `__pycache__`, `.pyc`, `.pytest_cache`, `.db`, `.venv` no repositório; `.appfactory/state|logs|runtime|jobs` ignorados | VM | OK |
 | T16 | `.gitignore` não ignora código: **falha encontrada e corrigida** — a regra `logs/` ignorava `src/appfactory/logs/`; ancorada como `/logs/` | VM (`git check-ignore -v`) | OK após correção |
-| T17 | `uv run pytest` no Windows | Windows | **PENDENTE** (KI-0018) |
+| T17 | `uv run pytest` no Windows | Windows (usuário) | **OK — 58 passaram** (informado pelo usuário; ver V2.1-01) |
+
+## Validação pós-commit da Fase 2.1 (2026-09-26) — commit `4373c65`
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V2.1-01 | `uv run pytest` | Windows (usuário) | **58 passaram** (informado pelo usuário). Evidências no disco: `.venv` criado por uv 0.12.12 com CPython 3.13.14 (`pyvenv.cfg`), pytest 9.1.1 e pluggy 1.6.0 instalados, bytecode `*.cpython-313-pytest-9.1.1.pyc` dos 9 módulos de teste, `uv.lock` commitado |
+| V2.1-02 | `git status` | VM | `On branch main` · `Your branch is up to date with 'origin/main'` · `nothing to commit, working tree clean` |
+| V2.1-03 | `git log -1 --oneline` | VM | `4373c65 feat: add Job Manager foundation (Phase 2.1)` (autor Gabriel Ximenes, 2026-09-26 23:16:09 -0300; 58 arquivos) |
+| V2.1-04 | `git ls-remote` | Nuvem | `refs/heads/main` = `4373c650b084c8ca909f9451bc43e387dced20fb` (sincronizado) |
+| V2.1-05 | `git diff --check` | VM | sem saída (OK) |
+| V2.1-06 | `uv run pytest` a partir da VM do Cowork | VM | **não executável**: o uv tenta baixar o CPython 3.13 do GitHub e a rede da VM recusa (`tunnel error: unsuccessful`). Nada foi criado no repositório (ambiente e cache fora da pasta) |
+| V2.1-07 | `PYTHONPATH=src python3 -m unittest discover -s tests -t .` no commit `4373c65` | VM (Python 3.10.12) | **Ran 58 tests — OK** |
+| V2.1-08 | Artefatos ignorados após a execução no Windows | VM (`git status --ignored`) | `.venv/` e `__pycache__/` presentes e **ignorados** pelo Git; nenhum arquivo de runtime rastreado |

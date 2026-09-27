@@ -149,10 +149,21 @@ git push
 | VM → Nuvem | `device_stage_files` (41 arquivos; depois reenvio de `leases.py` e `test_concurrency.py`) ; `python3.11/3.12/3.13 -m unittest discover -s tests -t .` | 57/57 na 1ª rodada; **58/58** em 3.11, 3.12 e 3.13 após a correção do `boot_id` |
 | VM | compilação de todos os `.py` em memória ; `af --root /tmp/afdb db check` ; `git diff --check` ; busca de segredos ; `git status --porcelain --ignored` ; `git check-ignore -v …` | OK; `.gitignore` corrigido (`/logs/`) |
 
-### Commit da Fase 2.1 (usuário, PowerShell) — PENDENTE DE APROVAÇÃO
+### Commit da Fase 2.1 (usuário, PowerShell) — CONCLUÍDO: `4373c65` (após `uv run pytest` com 58 testes aprovados, informado pelo usuário)
 ```powershell
 uv run pytest
 git add .
 git commit -m "feat: add Job Manager foundation (Phase 2.1)"
 git push
 ```
+
+## 2026-09-26 — Validação pós-commit da Fase 2.1
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `git status` ; `git log -3 --oneline` ; `git log -1 --format=...` ; `git diff --check` ; `git show --stat/--name-status HEAD` | limpo, sincronizado, `4373c65`, sem problemas |
+| Nuvem | `git ls-remote https://github.com/bielxleme/app-factory` | `main` = `4373c650…` |
+| VM | `UV_PROJECT_ENVIRONMENT=$HOME/afvenv UV_CACHE_DIR=$HOME/uvcache uv run pytest` | falhou: download do CPython 3.13 bloqueado (rede) |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` | 58 testes OK |
+| VM | `cat .venv/pyvenv.cfg` ; `ls .venv/Lib/site-packages` ; `ls tests/*/__pycache__` | evidências da execução no Windows (CPython 3.13.14, pytest 9.1.1) |
+| VM | `python3 - <<'PY' … PY` (CP-0004, job.json, TEST_STATUS, KNOWN_ISSUES, CHANGELOG, COMMAND_LOG) ; `cat > PROJECT_STATE.md / HANDOFF.md / TASK_QUEUE.md` | atualizados |

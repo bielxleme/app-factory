@@ -4,17 +4,19 @@ Legenda: `[x]` concluída e verificada · `[~]` em andamento · `[ ]` pendente �
 
 ## FASE 0 — Preparação — CONCLUÍDA (CP-0001)
 ## FASE 1 — Arquitetura — CONCLUÍDA (CP-0002, `4082457`)
-## FASE 1.1 — Revisão documental — CONCLUÍDA (CP-0003, `40d4d79`; validado em `97c82c4`)
+## FASE 1.1 — Revisão documental — CONCLUÍDA (CP-0003, `40d4d79`)
 
-## FASE 2.1 — Fundação: Job Manager — CONCLUÍDA no código, aguardando validação no Windows e commit
+## FASE 2.1 — Fundação: Job Manager — CONCLUÍDA E VALIDADA (CP-0004, `4373c65`)
 
-- [x] Núcleo: schema SQLite v1, estados, IDs, relógio de tempo ativo, identidade de processos
-- [x] Manager, executor, checkpoints, STOP de job e da fábrica, recuperação, leases/fencing, locks, CLI
-- [x] 58 testes (unitários + integração com queda real de processo) — OK em Linux, Python 3.10–3.13
-- [x] Documentação: D-0040 a D-0047, runbook, 03/10/14, KI-0018 a KI-0020, CP-0004
-- [ ] **Usuário:** `uv run pytest` no Windows (KI-0018) e registrar o resultado
-- [ ] **Usuário:** commit `feat: add Job Manager foundation (Phase 2.1)`
-- [ ] Após o commit: preencher `validated_commit` no CP-0004 (D-0011)
+- [x] Implementação do Job Manager e CLI mínima
+- [x] 58 testes — Windows (`uv run pytest`) e Linux (Python 3.10–3.13)
+- [x] Commit `4373c65` e validação pós-commit (CP-0004 preenchido)
+- [ ] **Usuário:** commit da consolidação documental `chore: validate Phase 2.1 checkpoint`
+
+## Pendências técnicas conhecidas (para a 2.4)
+
+- [ ] KI-0019 — daemon, Job Object raiz, encerramento de processos mudos, recuperação automática na partida
+- [ ] KI-0020 — daemon como único escritor do SQLite (D-0037)
 
 ## Decisões e ações do usuário previstas
 

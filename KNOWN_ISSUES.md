@@ -76,9 +76,10 @@
 - **Descrição:** a contabilidade de VRAM por diferença, a janela de observação e as heurísticas de tela cheia/processos (05 §1.1) são estimativas.
 - **Ação:** executar a matriz de validação (ocioso, vídeo, jogo, Ollama usado por outra ferramenta, inferência + jogo) e calibrar `overhead_contexto`, `vram_base` e `margem_medicao`.
 
-## KI-0018 · Aberto · Caminhos Windows do código não executados em Windows
+## KI-0018 · Resolvido (2026-09-26) · Caminhos Windows do código não executados em Windows
 - **Descrição:** `core/clock.py` (`QueryUnbiasedInterruptTime`, `NtQuerySystemInformation`) e `core/procinfo.py` (`OpenProcess`, `GetProcessTimes`, `GetExitCodeProcess`) só foram verificados por leitura; os testes rodaram em Linux (VM do Cowork, Python 3.10; nuvem, Python 3.11–3.13). O pytest em si não pôde ser executado (PyPI bloqueado nos dois ambientes); os testes são `unittest` compatíveis com pytest.
 - **Ação:** rodar `uv run pytest` no Windows (PowerShell) e registrar o resultado em `TEST_STATUS.md`. Em caso de erro nessas funções, o comportamento previsto é conservador (processo considerado vivo → recuperação mais lenta, nunca execução duplicada).
+- **Solução:** `uv run pytest` executado no Windows pelo usuário: 58 testes passaram (CPython 3.13.14, pytest 9.1.1), incluindo os testes de integração que usam o relógio e a identidade de processos reais. Registrado em `TEST_STATUS.md` (V2.1-01). Suspensão/hibernação real do notebook continua sem teste automatizado (previsto na 2.4).
 
 ## KI-0019 · Limitação (até a 2.4) · Sem daemon nem Job Objects
 - **Descrição:** a recuperação só acontece com `af recover` (ou ao tentar executar o job); um processo mudo perde a posse por *fencing*, mas não é encerrado; `STOPPING` com executor morto só vira `STOPPED` na recuperação.
