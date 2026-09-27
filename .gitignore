@@ -53,7 +53,8 @@ temp/
 
 # ===== Logs =====
 *.log
-logs/
+# ancorado na raiz: "logs/" sem barra inicial ignorava o pacote src/appfactory/logs/ (Fase 2.1)
+/logs/
 
 # ===== Modelos e mídia gerada (grandes) =====
 models/

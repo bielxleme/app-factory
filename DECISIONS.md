@@ -205,3 +205,49 @@ Decisões do usuário registradas nesta revisão: sandbox opção B (S1 endureci
 - **Decisão:** CP-0002 validado no commit `4082457`; decisões D-0012 a D-0025 confirmadas (ativas, algumas revisadas); CP-0003 registra a Fase 1.1 e terá `validated_commit` preenchido no commit seguinte ao commit da revisão (D-0011).
 - **Motivo:** N8.
 - **Status:** aprovada pelo usuário (Fase 1.1).
+
+---
+
+# Fase 2.1 — Fundação: Job Manager (2026-09-26) · base: commit `97c82c4`
+
+Decisões tomadas durante a implementação. Status: **em vigor no código da Fase 2.1; pendentes de commit**.
+
+## D-0040 · 2026-09-26 · Estados STOPPING e STOPPED para o STOP explícito de job
+- **Decisão:** acrescentar aos 9 estados de `03-jobs.md` os estados `STOPPING` (transitório, ocupa a vaga do projeto) e `STOPPED` (parado de forma controlada, não terminal). `RUNNING/PLANNING → STOPPING → STOPPED`; `QUEUED/PAUSED/WAITING/BLOCKED → STOPPED` direto; `STOPPED → QUEUED` só por `af job resume`. O STOP da **fábrica** (kill switch, D-0028) continua separado e leva a `PAUSED(factory_stop)`.
+- **Motivo:** o pedido da Fase 2.1 exige `running → stopping → stopped`; a arquitetura não tinha esses estados. Mantidos todos os estados já definidos.
+- **Status:** em vigor (Fase 2.1). Revisa `03-jobs.md` §2.
+
+## D-0041 · 2026-09-26 · Escopo da Fase 2.1 redefinido: fundação + núcleo do Job Manager
+- **Decisão:** a Fase 2.1 passa a incluir o núcleo do Job Manager (antes previsto na 2.4), sem daemon, Job Objects, agentes ou sandbox. Tipos de job registrados no código têm plano implícito aprovado (`QUEUED → RUNNING`, 03 §2 nota \*); `PLANNING` fica sem uso até existir o Planner. Enquanto não há tasks, o job é a unidade executada e `RUNNING` sem tentativa aberta significa "pronto para retomar".
+- **Motivo:** instrução do usuário para a Fase 2.1.
+- **Status:** em vigor. Revisa `14-plano-fase-2.md`.
+
+## D-0042 · 2026-09-26 · Fase 2.1 sem dependências de execução
+- **Decisão:** somente biblioteca padrão (`sqlite3`, `argparse`, `dataclasses`, `threading`, `ctypes`). Testes em estilo `unittest`, executáveis também pelo pytest (`pytest.ini`). Typer, Pydantic e FastAPI (11-tecnologias) entram quando a API local e os contratos forem implementados.
+- **Motivo:** o PyPI estava inacessível nos dois ambientes de verificação desta sessão; menos dependências = menos superfície e instalação trivial no Windows.
+- **Status:** em vigor. Não revoga as escolhas de `11-tecnologias.md`, só as adia.
+
+## D-0043 · 2026-09-26 · Escritor único do SQLite: regime transitório
+- **Decisão:** até existir o daemon (2.4), a CLI e os executores gravam pela mesma biblioteca, sempre em transações `BEGIN IMMEDIATE` (serializadas pelo SQLite, `busy_timeout` 30 s). D-0037 (só o daemon escreve) continua sendo o alvo e será aplicado na 2.4.
+- **Motivo:** não há daemon nesta fase; a concorrência entre processos precisa ser segura mesmo assim (testado com threads e processos).
+- **Status:** em vigor (transitório).
+
+## D-0044 · 2026-09-26 · Posse por tentativa, verificação de vida e fencing
+- **Decisão:** cada execução é uma tentativa com PID + horário de criação + `boot_id` e lease em tempo ativo (60 s; heartbeat 15 s). Lease vencido → verificação de vida; processo vivo ganha +2 leases de carência; depois disso perde a posse (`stalled`). Toda escrita do executor é **cercada** (*fencing*): tentativa que não é mais a dona recebe `LeaseLost` e para. Mudança de `boot_id` sozinha não tira a posse de um processo que continua vivo com a mesma identidade. Tentativa sem PID nunca é dada como morta pelo PID. `interrupted_attempts > 5` → `BLOCKED(needs_human)`.
+- **Motivo:** 15 §5 sem Job Objects ainda; impedir dois executores no mesmo job; evitar laço infinito de queda.
+- **Status:** em vigor. Na 2.4, processos mudos passam também a ser encerrados pelo Job Object.
+
+## D-0045 · 2026-09-26 · Checkpoints de job no SQLite
+- **Decisão:** tabela `checkpoints` com `seq` crescente (nunca sobrescreve), `kind` (`step`/`stop`/`pause`), checksum SHA-256 e triggers que proíbem apagar ou alterar (só `valid → invalid`). Gravação na mesma transação que atualiza o job. Último válido = maior `seq` com `status = 'valid'` e checksum íntegro; corrompidos são marcados `invalid` na recuperação. Arquivos de checkpoint de passo em `.appfactory/jobs/` ficam para quando houver tasks/ContextPacks.
+- **Motivo:** atomicidade e "nunca ficar sem checkpoint recuperável".
+- **Status:** em vigor.
+
+## D-0046 · 2026-09-26 · Regras de falha
+- **Decisão:** falha recuperável de passo → tentativa `failed`, job segue `RUNNING` (`retry_pending`) a partir do último checkpoint; após `max_attempts` (3) → `BLOCKED(needs_human)`. Falha fatal ou validação reprovada → `FAILED` (requeue manual). Falha ao gravar checkpoint → o anterior continua válido e a tentativa falha. Falha durante a parada → `STOPPED` com evento `job.stop_degraded` (a parada pedida prevalece; direção segura). Falha durante a recuperação de um job → evento `recovery.error`, os demais seguem, e a rotina é idempotente.
+- **Motivo:** 03 §3, 07 §3–4 aplicados ao job sem tasks.
+- **Status:** em vigor.
+
+## D-0047 · 2026-09-26 · Somente handlers registrados; injeção de falhas controlada
+- **Decisão:** o executor só roda handlers registrados no código (`demo.steps` nesta fase); o payload é JSON validado, sem código. Chaves `_faults` (simulação de quedas e falhas) só são aceitas com `AF_ALLOW_FAULT_INJECTION=1`, usado apenas pelos testes.
+- **Motivo:** 08 §0 — nenhuma execução de código vindo de agente/usuário.
+- **Status:** em vigor.

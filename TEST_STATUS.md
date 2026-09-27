@@ -66,3 +66,29 @@ Ambientes: **VM** = shell local do Cowork (Ubuntu 22.04.5, isolado) · **Nuvem**
 | V42 | Nenhuma implementação da Fase 2 (`.py`, `.toml`, `.ini`, `.yaml`, `src/`, `config/`, `tests/` etc.) | VM (`git ls-files` + não rastreados) | OK — nenhuma |
 | V43 | Escopo: só documentação, especificação, decisões e estado; `tools/`, `.gitignore`, `.gitattributes` inalterados; nada alterado fora de `D:\Claude\app-factory` | VM (`git status`, `git diff --stat`, `find -newer` em `D:\Claude`) | OK — 27 modificados + 2 novos, todos previstos; nenhum arquivo externo modificado |
 | V44 | `git diff --check`, busca de segredos, `.git` sem lock | VM | OK |
+
+## Fase 2.1 — Fundação: Job Manager (2026-09-26)
+
+Ambientes: **VM** = Linux do Cowork, Python 3.10.12 · **Nuvem** = Linux, Python 3.11.15 / 3.12.3 / 3.13.13 · **Windows** = máquina do usuário (ainda não executado, KI-0018). O pytest não pôde ser instalado (PyPI bloqueado nos dois ambientes); os testes são `unittest` compatíveis com pytest (`pytest.ini`).
+
+Comando: `PYTHONPATH=src python -m unittest discover -s tests -t .`
+
+| # | Suíte / verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| T01 | `tests/unit/test_states.py` — transições válidas, rejeição de todas as inválidas, terminais, estados desconhecidos (5) | VM, Nuvem 3.11–3.13 | OK |
+| T02 | `tests/unit/test_store.py` — migração idempotente, WAL + `synchronous=FULL`, schema mais novo recusado, `events` append-only, `checkpoints` imutáveis, índice único 1 ativo/projeto, rollback (6) | idem | OK |
+| T03 | `tests/unit/test_manager.py` — identidade/IDs únicos (60 criações concorrentes), validação de entrada, persistência após reinício (job, estado, eventos, timestamps), fila após reinício + prioridade/envelhecimento, espelho runtime não é fonte da verdade, COMPLETED só com validação aprovada do checkpoint atual, validação reprovada → FAILED, retry → COMPLETED, 3 falhas → BLOCKED, falha fatal → FAILED, cancelamento (13) | idem | OK |
+| T04 | `tests/unit/test_checkpoints.py` — criação/leitura/último, nunca sobrescreve, falha no meio da gravação mantém o anterior, registro corrompido ignorado e marcado `invalid`, último válido após reinício, estado só JSON (5) | idem | OK |
+| T05 | `tests/unit/test_stop.py` — STOP gracioso `RUNNING→STOPPING→STOPPED` com checkpoint `stop` e limpeza de temporários, STOP persiste após reinício e é honrado na recuperação, STOP de job na fila/terminal, falha durante a parada (degradada, checkpoint anterior preservado), fencing após parada, STOP da fábrica (bloqueia despacho, persiste, exige confirmação), arquivo STOP aciona e apagá-lo não libera, job em execução pausa e volta à fila na liberação (8) | idem | OK |
+| T06 | `tests/unit/test_concurrency.py` — 1 RUNNING por projeto (e outro projeto liberado), corrida de 4 executores na fila do mesmo projeto, dois executores no mesmo job, corrida de 6 executores no mesmo job (1 vence), processo morto → retomada + fencing, processo vivo dentro da carência mantém a posse, processo mudo perde a posse, suspensão não vence lease, reinício, mudança de boot_id sozinha não tira a posse (10) | idem | OK |
+| T07 | `tests/unit/test_locks.py` — normalização de `writes` (recusa curingas, absolutos, `..`), sobreposição, tudo-ou-nada por projeto, liberação (3) | idem | OK |
+| T08 | `tests/integration/test_acceptance.py` — **ACEITE 1** com processo real: criar → QUEUED → RUNNING → checkpoints → `os._exit` no passo 3 → novo JobManager → `recover` → último válido = passo 2 → retomada (passos 3–5 apenas) → validação → COMPLETED; queda no meio da gravação de checkpoint; queda em passo com efeito colateral → BLOCKED; falha durante a recuperação isolada por job e rotina idempotente; **ACEITE 2** com processo real: RUNNING → STOP → STOPPING → checkpoint `stop` → STOPPED, STOP persiste após reinício, retomada explícita → COMPLETED (5) | idem | OK |
+| T09 | `tests/integration/test_cli.py` — create/list/queue/status/run/show/checkpoint/history/db check, stop de job, erros com código 2, liberar STOP exige terminal interativo (3) | idem | OK |
+| T10 | Total | VM (3.10) · Nuvem (3.11, 3.12, 3.13) | **58/58 OK** em cada versão |
+| T11 | Sintaxe: compilação de 38 arquivos `.py` (src + tests), sem gerar `.pyc`; checagem de imports não usados | VM | OK |
+| T12 | SQLite: banco novo → `af db check`: `quick_check=ok`, 0 violações de FK, schema 1, tabelas e triggers presentes, `journal_mode=wal` | VM | OK |
+| T13 | `git diff --check` | VM | OK |
+| T14 | Segredos (padrões de tokens/chaves) | VM | nenhum |
+| T15 | Runtime fora do Git: nenhum `__pycache__`, `.pyc`, `.pytest_cache`, `.db`, `.venv` no repositório; `.appfactory/state|logs|runtime|jobs` ignorados | VM | OK |
+| T16 | `.gitignore` não ignora código: **falha encontrada e corrigida** — a regra `logs/` ignorava `src/appfactory/logs/`; ancorada como `/logs/` | VM (`git check-ignore -v`) | OK após correção |
+| T17 | `uv run pytest` no Windows | Windows | **PENDENTE** (KI-0018) |

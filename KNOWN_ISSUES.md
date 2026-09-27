@@ -75,3 +75,15 @@
 ## KI-0017 · Aberto (a validar na fatia 2.3) · Heurísticas de uso da GPU por terceiros
 - **Descrição:** a contabilidade de VRAM por diferença, a janela de observação e as heurísticas de tela cheia/processos (05 §1.1) são estimativas.
 - **Ação:** executar a matriz de validação (ocioso, vídeo, jogo, Ollama usado por outra ferramenta, inferência + jogo) e calibrar `overhead_contexto`, `vram_base` e `margem_medicao`.
+
+## KI-0018 · Aberto · Caminhos Windows do código não executados em Windows
+- **Descrição:** `core/clock.py` (`QueryUnbiasedInterruptTime`, `NtQuerySystemInformation`) e `core/procinfo.py` (`OpenProcess`, `GetProcessTimes`, `GetExitCodeProcess`) só foram verificados por leitura; os testes rodaram em Linux (VM do Cowork, Python 3.10; nuvem, Python 3.11–3.13). O pytest em si não pôde ser executado (PyPI bloqueado nos dois ambientes); os testes são `unittest` compatíveis com pytest.
+- **Ação:** rodar `uv run pytest` no Windows (PowerShell) e registrar o resultado em `TEST_STATUS.md`. Em caso de erro nessas funções, o comportamento previsto é conservador (processo considerado vivo → recuperação mais lenta, nunca execução duplicada).
+
+## KI-0019 · Limitação (até a 2.4) · Sem daemon nem Job Objects
+- **Descrição:** a recuperação só acontece com `af recover` (ou ao tentar executar o job); um processo mudo perde a posse por *fencing*, mas não é encerrado; `STOPPING` com executor morto só vira `STOPPED` na recuperação.
+- **Ação:** fatia 2.4 (daemon, Job Object raiz, recuperação automática na partida).
+
+## KI-0020 · Limitação (até a 2.4) · Escritor único transitório
+- **Descrição:** vários processos (CLI/executores) escrevem no SQLite, serializados por `BEGIN IMMEDIATE` (D-0043), em vez de só o daemon (D-0037).
+- **Ação:** fatia 2.4.

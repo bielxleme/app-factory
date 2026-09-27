@@ -4,6 +4,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Fase 2.1 — Fundação: Job Manager (2026-09-26) — pendente de commit
+
+#### Adicionado
+- `pyproject.toml` (sem dependências de execução, `af` como script), `pytest.ini`, `.python-version` (3.13).
+- `src/appfactory/`: `core/` (caminhos, relógio de tempo ativo, IDs, identidade de processo, STOP da fábrica), `jobs/` (estados, store SQLite + migrações, manager, executor, handlers registrados, leases, locks, recuperação, erros), `checkpoints/service.py`, `logs/` (espelho JSONL e redação), `cli/main.py`.
+- Job Manager: estados da arquitetura + `STOPPING`/`STOPPED`, fila persistente, checkpoints atômicos com checksum, retomada do último checkpoint válido, STOP de job gracioso, STOP da fábrica persistente, recuperação de órfãos, leases com verificação de vida e fencing, 1 RUNNING por projeto (índice único), locks por projeto, histórico por job (tabela `events` append-only), CLI mínima.
+- 58 testes (`tests/unit`, `tests/integration`), incluindo os dois cenários de aceite com queda real de processo.
+- `docs/runbooks/job-manager.md`; decisões D-0040 a D-0047; KI-0018 a KI-0020.
+
+#### Alterado
+- `docs/architecture/03-jobs.md` (estados STOPPING/STOPPED, §8), `14-plano-fase-2.md` (2.1 redefinida, 2.4 ajustada), `10-diretorios.md`, `AGENTS.md` (convenções de teste e dependências).
+
+#### Corrigido
+- `.gitignore`: `logs/` → `/logs/` (a regra antiga ignorava o pacote `src/appfactory/logs/`).
+
 ### Fase 1.1 — Revisão e correção documental (2026-09-26) — pendente de commit
 
 Base: revisão técnica do commit `4082457` (achados N1–N8). Somente documentação, especificação, decisões e estado.

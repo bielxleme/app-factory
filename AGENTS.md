@@ -59,3 +59,5 @@ Este arquivo vale para **qualquer IA ou agente** (Claude, Codex, Cursor, modelos
 - Checkpoints: `.appfactory/checkpoints/CP-NNNN-<slug>.json` (numeração sequencial).
 - Datas: ISO 8601 com fuso (`America/Sao_Paulo`, UTC-3).
 - Finais de linha: LF (ver `.gitattributes`).
+- Testes: `uv run pytest` (ou `python -m unittest discover -s tests -t .` com `PYTHONPATH=src`). Nenhuma fase é concluída com teste crítico falhando.
+- Código Python: sem dependências novas sem decisão registrada (D-0042); configuração do pytest só em `pytest.ini`.

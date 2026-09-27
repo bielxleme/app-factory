@@ -1,5 +1,7 @@
 # 03 — Sistema de jobs (B)
 
+**Revisão 2.1 (2026-09-26):** estados `STOPPING`/`STOPPED` para o STOP explícito de job (D-0040); implementação em `src/appfactory/jobs/` (D-0041 a D-0047).
+
 **Revisão 1.1 (2026-09-26):** 1 job RUNNING por projeto, BATTERY, leases por tempo ativo com verificação de vida, estado+evento na mesma transação (N3, N7).
 
 ## 1. Hierarquia
@@ -23,6 +25,8 @@ Job (pedido do usuário)
 | `WAITING` | Esperando condição **automática** | `PLANNING`, `RUNNING` | `QUEUED`, `RUNNING`, `PAUSED`, `BLOCKED`, `CANCELLED` | Motivos tipados: `resources`, `provider_quota`, `network`, `dependency`, `lock`, `schedule`, `disk`. Tem `retry_at` ou condição observável. Após 24 h em `WAITING` → `BLOCKED(stale)`. |
 | `BLOCKED` | Precisa de **ação humana** | qualquer não terminal | `QUEUED`, `RUNNING`, `PLANNING`, `CANCELLED` | Motivos: `approval`, `credentials`, `needs_human` (debug esgotado), `conflict`, `policy_violation`, `stale`. Master notifica o usuário. Nada de gastar recursos. |
 | `FAILED` | Terminou sem sucesso | `PLANNING`, `RUNNING` | `QUEUED` (requeue manual), — | Falha não recuperável automaticamente (ex.: plano impossível, 3 replanejamentos). Artefatos e branches mantidos. |
+| `STOPPING` | STOP do job pedido; o executor termina o passo atual, grava checkpoint `stop` e limpa temporários (D-0040) | `RUNNING`, `PLANNING` | `STOPPED`, `CANCELLED` | Ocupa a vaga do projeto. Sem executor vivo → `STOPPED` direto (na hora ou em `af recover`). Falha durante a parada → `STOPPED` com evento `job.stop_degraded` (D-0046). |
+| `STOPPED` | Parado de forma controlada, com o último checkpoint válido preservado | `STOPPING`, `QUEUED`, `PAUSED`, `WAITING`, `BLOCKED` | `QUEUED` (`af job resume`), `CANCELLED` | **Não** é retomado automaticamente, nem após reinício. Diferente do STOP da fábrica, que leva a `PAUSED(factory_stop)`. |
 | `COMPLETED` | Entregue e verificado | `RUNNING` | — (terminal) | Exige QA + Security aprovados, handoff gerado e [H] para ações R3 de entrega. |
 | `CANCELLED` | Cancelado | qualquer não terminal | — (terminal) | Só por comando do usuário (ou política, com registro). Runners param cooperativamente; worktrees preservados por 7 dias. |
 
@@ -72,3 +76,11 @@ events(seq INTEGER PK AUTOINCREMENT, ts, type, job_id, task_id, actor, payload_j
 checkpoints(id PK, level, job_id, task_id, git_ref, file_path, created_at)
 approvals(id PK, job_id, task_id, risk, action_json, state, requested_at, decided_at, decided_by, expires_at)
 ```
+
+## 8. Implementação da Fase 2.1 (D-0041 a D-0047)
+
+- Tipos de job **registrados no código** (hoje só `demo.steps`) têm plano implícito aprovado: `QUEUED → RUNNING` direto (§2, nota \*). `PLANNING` só será usado quando houver Planner.
+- Enquanto não há tasks, a unidade executada é o próprio job: `RUNNING` sem tentativa aberta = "pronto para retomar" (§2: "ao menos 1 task em execução **ou pronta**").
+- Posse por tentativa (`attempts`) com lease em tempo ativo e **fencing**: escrita de tentativa que perdeu a posse → `LeaseLost`.
+- `failed_attempts ≥ max_attempts (3)` → `BLOCKED(needs_human)`; falha fatal ou validação reprovada → `FAILED`; `interrupted_attempts > 5` → `BLOCKED(needs_human)` (laço de queda).
+- Tabelas extras do schema v1: `validations`, `step_journal`, `id_counters`, `schema_meta`; `events` e `checkpoints` protegidos por triggers (append-only / imutáveis).

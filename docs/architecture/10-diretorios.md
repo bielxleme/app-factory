@@ -2,6 +2,8 @@
 
 Legenda: **[V]** versionado no Git da fábrica · **[I]** ignorado · **[P]** caminho protegido (08 §5.1) · *(Fx)* criado na fase indicada. Nada de código de produção existe ainda.
 
+**Fase 2.1 (2026-09-26):** existem `pyproject.toml`, `pytest.ini`, `.python-version`, `src/appfactory/{core,jobs,checkpoints,logs,cli}/`, `tests/{unit,integration}/`, `docs/runbooks/job-manager.md`. O restante da árvore continua planejado.
+
 **Revisão 1.1 (2026-09-26):** estado operacional em `.appfactory/runtime/`, worktree de integração, arquivos de autenticação/STOP/instância, `pytest.ini` protegido.
 
 ```

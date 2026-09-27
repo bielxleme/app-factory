@@ -4,28 +4,31 @@
 | --- | --- |
 | Projeto | App Factory |
 | Inicializado em | 2026-09-26 13:13:26 -03:00 (`git init`) |
-| Último commit | `4082457` — `docs: define App Factory architecture (Phase 1)` (= `origin/main`) |
-| Checkpoints | `CP-0001` (Fase 0, `5aa9709`) · `CP-0002` (Fase 1, **validado em `4082457`**) · `CP-0003` (Fase 1.1, **pendente de commit**) |
-| Fase 1 | **CONCLUÍDA e validada** (`4082457`) |
-| Fase atual | **Fase 1.1 — Revisão e correção documental da arquitetura** |
-| Status da fase | **CONCLUÍDA — aguardando revisão e commit do usuário** |
-| Arquitetura | Especificação v1.1 em `docs/architecture/` (16 documentos). **Nenhum código de produção implementado.** |
-| Hardware | Medido em 2026-09-26 16:17 -03:00 (`RESOURCE_POLICY.md`) |
-| Próximo estágio | Fase 2 — Implementação, fatia 2.1 (só com nova instrução do usuário) |
-| Última atualização | 2026-09-26 18:15 -03:00 |
+| Último commit | `97c82c4` — `chore: validate Phase 1.1 checkpoint` (= `origin/main`) |
+| Checkpoints | `CP-0001` (Fase 0) · `CP-0002` (Fase 1, `4082457`) · `CP-0003` (Fase 1.1, `40d4d79`) · `CP-0004` (Fase 2.1, **pendente de commit**) |
+| Fase atual | **Fase 2.1 — Fundação: Job Manager** |
+| Status da fase | **CONCLUÍDA no código e nos testes — aguardando execução no Windows (`uv run pytest`) e commit do usuário** |
+| Código | `src/appfactory/` (Job Manager, sem dependências de execução) + 58 testes |
+| Testes | 58/58 OK em Linux com Python 3.10, 3.11, 3.12 e 3.13; Windows pendente (KI-0018) |
+| Próximo estágio | Fase 2.2 — Guardrails (só com nova instrução do usuário) |
+| Última atualização | 2026-09-26 20:05 -03:00 |
 
-## Fase 1.1 — achados da revisão técnica corrigidos
+## Fase 2.1 — critérios
 
-- [x] N1 — Segurança do código não confiável (S1h, usuário dedicado, Job Object, tokens, STOP, aprovações, npm/pip, S2)
-- [x] N2 — Infraestrutura protegida ampliada + rejeição automática
-- [x] N3 — Ciclo de vida do daemon (`15-daemon.md`)
-- [x] N4 — GPU no Windows/WDDM
-- [x] N5 — Classificação e posse de modelos do Ollama
-- [x] N6 — Estado versionado × operacional
-- [x] N7 — Contradições resolvidas (CPU, BATTERY, SQLite, `writes`, locks, integração)
-- [x] N8 — Fechamento da Fase 1 (CP-0002 validado, decisões confirmadas, CP-0003)
-- [ ] Commit da Fase 1.1 (usuário)
+- [x] Identidade de jobs (IDs `JOB-YYYYMMDD-NNNN` sem colisão, timestamps, etapa, checkpoint, motivo)
+- [x] Estados da arquitetura + `STOPPING`/`STOPPED` (D-0040); transições controladas e registradas
+- [x] `COMPLETED` só após validação aprovada do checkpoint atual
+- [x] SQLite como fonte da verdade (WAL, `synchronous=FULL`, estado+evento na mesma transação, triggers)
+- [x] Fila persistente reconstruída após reinício
+- [x] Checkpoints atômicos, nunca sobrescritos, com checksum; último válido após queda
+- [x] Retomada após queda real de processo (aceite 1)
+- [x] STOP explícito `RUNNING → STOPPING → STOPPED` com checkpoint e limpeza (aceite 2); STOP da fábrica persistente
+- [x] Recuperação de órfãos (verificação de vida, journal, isolamento por job, idempotente)
+- [x] 1 RUNNING por projeto (garantido pelo banco); dois executores não assumem o mesmo job (fencing)
+- [x] Locks por projeto; histórico por job; CLI mínima
+- [ ] `uv run pytest` no Windows (KI-0018)
+- [ ] Commit da Fase 2.1 (usuário)
 
 ## O que NÃO existe ainda (proposital)
 
-Código dos agentes, daemon, Job Manager, Resource Manager, Toolbox, routers, `pyproject.toml`, `config/`. Usuário `afrunner`, ACLs, tarefa de logon e mudanças no Ollama: **não feitos** (serão ações do usuário na Fase 2).
+Daemon, Job Objects, API local, tokens, agentes, sandbox S1h/S2, usuário `afrunner`, Resource Manager, routers/Ollama, navegador, mídia, Evolution. Nada foi alterado no Ollama, no Windows ou fora do repositório.

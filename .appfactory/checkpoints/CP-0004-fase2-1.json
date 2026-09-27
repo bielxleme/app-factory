@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "CP-0004",
+  "slug": "fase2-1",
+  "title": "Fase 2.1 — Fundação: Job Manager",
+  "created_at": "2026-09-26T20:05:00-03:00",
+  "created_by": "Claude (Cowork)",
+  "phase": "2.1",
+  "state": "phase_2_1_implemented_pending_windows_tests_and_commit",
+  "git": {
+    "branch": "main",
+    "parent_commit": "97c82c4",
+    "validated_commit": null,
+    "expected_commit_message": "feat: add Job Manager foundation (Phase 2.1)",
+    "remote": "https://github.com/bielxleme/app-factory.git",
+    "note": "validated_commit será preenchido no commit seguinte (D-0011)."
+  },
+  "acceptance": {
+    "crash_resume_complete": "tests/integration/test_acceptance.py::AcceptanceCrashResumeTest::test_create_run_checkpoint_crash_restart_recover_resume_validate_complete — OK",
+    "running_stop_stopped": "tests/integration/test_acceptance.py::AcceptanceStopTest::test_running_stop_stopping_checkpoint_stopped — OK"
+  },
+  "tests": {
+    "total": 58,
+    "linux_python_3_10": "58/58 OK",
+    "linux_python_3_11": "58/58 OK",
+    "linux_python_3_12": "58/58 OK",
+    "linux_python_3_13": "58/58 OK",
+    "windows_uv_run_pytest": "pendente (KI-0018)"
+  },
+  "decisions": ["D-0040", "D-0041", "D-0042", "D-0043", "D-0044", "D-0045", "D-0046", "D-0047"],
+  "known_issues": ["KI-0018", "KI-0019", "KI-0020"],
+  "schema": {"sqlite_schema_version": 1},
+  "not_done_on_purpose": [
+    "Daemon, Job Objects, API local, tokens",
+    "Agentes, sandbox S1h/S2, usuário afrunner",
+    "Resource Manager, routers, integração com Ollama",
+    "Navegador, mídia, Evolution Agent"
+  ],
+  "next_step": "Usuário: uv run pytest no Windows; depois commit. Fase 2.2 (Guardrails) só com nova instrução."
+}

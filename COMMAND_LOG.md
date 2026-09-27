@@ -129,9 +129,30 @@ git push
 | VM | `sed -i` (ajuste de horário nos JSON; `vram_available_for_factory_mib` no exemplo de `12-contratos.md`) |
 | VM | `python3 -m json.tool` nos JSON; script de validação (V35–V44) |
 
-### Commit da Fase 1.1 (usuário, PowerShell) — PENDENTE DE APROVAÇÃO
+### Commit da Fase 1.1 (usuário, PowerShell) — CONCLUÍDO: `40d4d79` (+ `97c82c4` validando o CP-0003, feito pelo usuário)
 ```powershell
 git add .
 git commit -m "docs: revise architecture after Phase 1 review (Phase 1.1)"
+git push
+```
+
+## 2026-09-26 — Fase 2.1 (Job Manager)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `git status --short --branch` ; `git log --oneline -5` ; leitura de HANDOFF/TASK_QUEUE/03/07/08/14/15/DECISIONS | limpo em `97c82c4` |
+| VM | `python3 -c "import pytest"` ; `pip3 download pytest` | pytest ausente; PyPI inacessível |
+| Nuvem | `uv pip install pytest` ; `pip download pytest` | 403 do proxy (PyPI bloqueado) |
+| VM | `mkdir -p src/appfactory/... tests/...` + `cat > <arquivo> <<'EOF' … EOF` (código e testes) ; `python3 - <<'PY' … PY` (correções pontuais) | criado |
+| VM | `cd /tmp/afsmoke && PYTHONPATH=… python3 -m appfactory job create/run/history ; db check` (fora do repo) | ciclo completo OK |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t . [-v]` | 1ª execução: 3 falhas (tentativa sem PID tratada como morta) → corrigido; depois 58/58 OK |
+| VM → Nuvem | `device_stage_files` (41 arquivos; depois reenvio de `leases.py` e `test_concurrency.py`) ; `python3.11/3.12/3.13 -m unittest discover -s tests -t .` | 57/57 na 1ª rodada; **58/58** em 3.11, 3.12 e 3.13 após a correção do `boot_id` |
+| VM | compilação de todos os `.py` em memória ; `af --root /tmp/afdb db check` ; `git diff --check` ; busca de segredos ; `git status --porcelain --ignored` ; `git check-ignore -v …` | OK; `.gitignore` corrigido (`/logs/`) |
+
+### Commit da Fase 2.1 (usuário, PowerShell) — PENDENTE DE APROVAÇÃO
+```powershell
+uv run pytest
+git add .
+git commit -m "feat: add Job Manager foundation (Phase 2.1)"
 git push
 ```
