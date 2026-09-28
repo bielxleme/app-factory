@@ -17,7 +17,7 @@
     "I4": {"file": "test_resource_limits.py", "checks": {
       "I4.sandbox_limits_within_ceilings": {"status": "active", "what": "limites de S1h/S2 nunca acima dos tetos do RESOURCE_POLICY.md"},
       "I4.one_running_per_project": {"status": "active", "what": "no máximo 1 job ativo por projeto"},
-      "I4.resources_config_within_ceilings": {"status": "pending", "slice": "2.3", "module": "appfactory.resources.manager", "what": "config/resources.yaml dentro dos tetos"}
+      "I4.resources_config_within_ceilings": {"status": "active", "what": "config/resources.yaml dentro dos tetos e sem limiar afrouxado (D-0064, D-0070, D-0072)"}
     }},
     "I5": {"file": "test_security_invariants.py", "checks": {
       "I5.protected_paths": {"status": "active", "what": "lista protegida completa e aplicada pelo Toolbox"},

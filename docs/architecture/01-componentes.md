@@ -78,9 +78,9 @@ Cada componente tem os 14 campos exigidos. Onde aparece **Padrão**, vale o §0.
 | Campo | Definição |
 | --- | --- |
 | Responsabilidade | Medir CPU/RAM/GPU/VRAM/disco/energia/atividade do usuário, decidir o **modo** (FOREGROUND, BACKGROUND, BATTERY, CONTENTION, CRITICAL), fazer o **controle de admissão** (slots de agentes, processos pesados e o lease exclusivo de GPU) e pedir pausa ou descarregamento de modelos. |
-| Entradas | Sondas: WMI/CIM (CPU, RAM, bateria), NVML/`nvidia-smi` (GPU e VRAM **totais**, temperatura — sem VRAM por processo no WDDM), `SHQueryUserNotificationState` (tela cheia), `GetLastInputInfo` (ociosidade), disco, runtime local (`/api/ps`) + registro de posse de modelos. Política `config/resources.yaml`. Método de cálculo: `05-resource-manager.md` §1.1. |
+| Entradas | Sondas: APIs Win32 via `ctypes` — `GetSystemTimes` (CPU), `GlobalMemoryStatusEx` (RAM e commit; D-0068), `GetSystemPowerStatus` (bateria) —, NVML/`nvidia-smi` (GPU e VRAM **totais**, temperatura — sem VRAM por processo no WDDM), `SHQueryUserNotificationState` (tela cheia), `GetLastInputInfo` (ociosidade), disco, runtime local (`/api/ps`) + registro de posse de modelos. Política `config/resources.yaml`. Método de cálculo: `05-resource-manager.md` §1.1. |
 | Saídas | `ResourceSnapshot` (a cada 5 s), `resource.mode_changed`, respostas de admissão (`grant/deny/wait`), ordens `unload_model`, `pause_task`. |
-| Ferramentas | psutil, nvidia-ml-py (fallback `nvidia-smi`), API do Ollama, ctypes (Win32). |
+| Ferramentas | Somente biblioteca padrão (D-0058): APIs Win32 via `ctypes`, NVML via `nvml.dll` + `ctypes` (fallback `nvidia-smi` só em `resources/probes/nvidia.py`), API do Ollama. Sem psutil e sem nvidia-ml-py. |
 | Permissões | Somente leitura do sistema + descarregar **apenas modelos carregados pela fábrica** + pedir pausa a tasks. **Nunca** descarrega modelos de outras ferramentas nem altera configurações do Windows, drivers, planos de energia ou a instalação do Ollama. |
 | Dependências | Nenhuma de negócio; é consultado por Job Manager e Model Router. |
 | Quando executar | Sempre (serviço do daemon). |

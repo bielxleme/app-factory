@@ -225,3 +225,48 @@ git add .
 git commit -m "chore: validate Phase 2.2 checkpoint"
 git push
 ```
+
+## 2026-09-27 — Fase 2.3: implementação (base `f44ac72`, sem commit)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` (linha de base) | 164 OK (10 pulados) |
+| VM | `cat > … <<'EOF'` / `python3 - <<'EOF' … EOF` (criação de `config/resources.yaml`, `src/appfactory/resources/**`, testes; edições aditivas em `cli/main.py`, `test_resource_limits.py`, `MANIFEST.json`, `test_repo_hygiene.py`) | ver D-0073 |
+| VM | `python3 -m unittest tests.unit.test_resource_policy …` (por etapa: política, modos, contabilidade, admissão, sondas, CLI) | falhas de contagem de tempo nos próprios testes de histerese (limites t0 … t0+N) e de mesma raiz em dois gerentes corrigidas; depois OK |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` | **217 OK (10 pulados)** — Python 3.10.12 |
+| VM | `PYTHONPATH=src:. python3 -m unittest discover -s tests/guardrails -t .` | **28 testes: 22 OK, 6 pulados** |
+| VM | `af --root <tmp> resources snapshot/watch --count 3/admit --kind agent/compare` (raiz temporária) | JSON válido; Linux => CRITICAL (pior caso, esperado); `admit` => `WAIT` janela incompleta (código 3) |
+| Nuvem | `git clone https://github.com/bielxleme/app-factory` (`f44ac72`) + arquivos da 2.3 copiados ; `python3.11/3.12/3.13 -m unittest discover -s tests -t .` | **217 OK (10 pulados)** em cada versão |
+| VM | `git diff --check` ; `git diff --no-index --check /dev/null <novos>` | sem erro |
+
+## 2026-09-27 — Fase 2.3: validação no Windows e correção D-0074 (sem commit)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | criação de `.appfactory/runtime/validate-2.3.ps1` (runtime, ignorado pelo Git) | script da validação |
+| PS (usuário) | `powershell -ExecutionPolicy Bypass -File .appfactory\runtime\validate-2.3.ps1` (10:59–11:17): `uv run pytest` ; guardrails ; `git diff --check` ; `measure-hardware.ps1` ; `af resources compare` ; G23-27 (filtro e direto) ; `af resources snapshot` ; M1–M4 (`uv run af --json resources watch --count 180`, `mode`, `snapshot`) ; repetição de pytest, guardrails, `git diff --check`, `git status --short` | todos com código 0; ver `TEST_STATUS.md` (V2.3-01…08, matriz M1–M4) |
+| VM | `python3` (análise dos arquivos de `validation-2.3/` e dos quatro `ki0017-M*.jsonl`) | defeito do critério de uso da GPU (valor instantâneo × média de 30 s) |
+| VM | `python3 - <<'EOF' … EOF` (edição de `resources/modes.py` e `tests/unit/test_resource_modes.py`) ; `python3 -m unittest tests.unit.test_resource_modes` | 1ª versão do teste novo com erro de montagem (histórico inicial de 0% diluía a média); corrigido o teste; OK |
+| VM | reprocessamento dos JSONL reais com o rastreador corrigido | M1 0→0, M2 62→91, M3 69→98, M4 16→38 amostras com `gpu_util`; modos finais iguais |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` ; guardrails ; `git diff --check` | 218 OK (10 pulados) ; 22 OK, 6 pulados ; sem erro |
+| Nuvem | `python3.11/3.12/3.13 -m unittest discover -s tests -t .` (com `modes.py` e o teste copiados) | 218 OK (10 pulados) em cada versão |
+
+## 2026-09-27 — Fase 2.3: rodada 2.3b e correção D-0075 (sem commit)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `mv -n ki0017-M{2,3,4}.jsonl ki0017-M{2,3,4}.run1.jsonl` ; criação de `.appfactory/runtime/validate-2.3b.ps1` | 1ª rodada preservada; script da revalidação |
+| PS (usuário) | `powershell -ExecutionPolicy Bypass -File .appfactory\runtime\validate-2.3b.ps1` (11:35–12:47) | ver `TEST_STATUS.md` (V2.3-09…12, M2–M4) |
+| VM | `python3` (análise de `validation-2.3b/` e `ki0017-M2/M3/M4.jsonl`) | M2 PASS; M3/M4 não conclusivos; `runtime_local` com timeout em 180/180 amostras de M2/M3 e intervalo real ~3,1 s |
+| VM | edição de `resources/probes/runtime_local.py`, `probes/__init__.py`, `manager.py`, `tests/fakes/probes.py`, `tests/unit/test_probes.py`, `tests/integration/test_cli_resources.py` ; testes específicos | OK |
+| VM | `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .` ; guardrails ; `git diff --check` | 223 OK (10 pulados) ; 22 OK, 6 pulados ; sem erro |
+| Nuvem | `python3.11/3.12/3.13 -m unittest discover -s tests -t .` | 223 OK (10 pulados) em cada versão |
+
+## 2026-09-27 — Fase 2.3: preparação da rodada 2.3c (sem commit)
+
+| Amb. | Comando | Resultado |
+| --- | --- | --- |
+| VM | `UV_PROJECT_ENVIRONMENT=$HOME/.af-venv-linux uv run pytest -q` (e com `--python /usr/bin/python3.10`) | falhou: download do CPython 3.13 / pytest recusado pelo proxy da VM |
+| VM | `git status --short` | deixou `.git/index.lock` (a VM não pode apagar arquivos da pasta conectada); movido com `mv -n` para `.git/index.lock.stale-vm-20260927` (arquivo vazio, ignorado pelo Git; pode ser apagado pelo usuário). Dali em diante: `GIT_OPTIONAL_LOCKS=0` |
+| VM | `python3 -m unittest discover -s tests -t .` ; testes do Resource Manager ; guardrails ; `git diff --check` | 223 OK (10 pulados) ; 65 OK (1 pulado) ; 22 OK, 6 pulados ; sem erro |
+| VM | `mv -n ki0017-M{3,4}.jsonl ki0017-M{3,4}.run2.jsonl` ; criação de `.appfactory/runtime/validate-2.3c.ps1` | rodada 2.3b preservada; script da rodada 2.3c |

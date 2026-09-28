@@ -8,7 +8,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "appfactory"
 SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "workspaces", ".appfactory", "__pycache__", ".pytest_cache"}
-SUBPROCESS_ALLOWED = {"security/diff_guard.py", "cli/main.py"}
+SUBPROCESS_ALLOWED = {"security/diff_guard.py", "cli/main.py",
+                      "resources/probes/nvidia.py"}   # só o fallback nvidia-smi (D-0058, G23-30)
 FORBIDDEN_CALLS = {"CreateProcessWithLogonW", "CreateProcessAsUserW", "CreateProcessWithTokenW", "LogonUserW",
                    "CreateJobObjectW", "AssignProcessToJobObject", "SetInformationJobObject", "TerminateJobObject",
                    "NetUserAdd", "SetNamedSecurityInfoW", "SetFileSecurityW", "SetSecurityInfo"}
@@ -56,6 +57,12 @@ class RepoHygiene(unittest.TestCase):
                 if isinstance(node, ast.Call) and _call_name(node) in ("system", "popen", "startfile") and \
                         isinstance(node.func, ast.Attribute) and getattr(node.func.value, "id", "") == "os":
                     self.fail(f"os.{_call_name(node)} em {rel}")
+
+    def test_g23_30_nvidia_smi_only_in_nvidia_probe(self):
+        """D-0058: `nvidia-smi` é fallback isolado em resources/probes/nvidia.py — nenhum outro módulo o cita."""
+        found = sorted(p.relative_to(SRC).as_posix() for p in SRC.rglob("*.py")
+                       if "nvidia-smi" in p.read_text(encoding="utf-8").lower())
+        self.assertEqual(found, ["resources/probes/nvidia.py"])
 
     def test_ac07_no_new_dependencies(self):
         text = (REPO / "pyproject.toml").read_text(encoding="utf-8")

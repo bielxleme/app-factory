@@ -87,5 +87,5 @@ admitir_GPU = lease_livre E vram_estimada(modelo, ctx) <= vram_disponivel_fabric
 admitir_pesado = pesados_ativos < limite_pesado[modo] E ram_disponivel_gb >= reserva_ram_gb[modo] + 1.0
 ```
 
-`reserva_ram_gb`: FOREGROUND 3,0 · BACKGROUND 2,0 · BATTERY 3,0. `reserva_vram_mib`: FOREGROUND 768 · BACKGROUND 384.
+`reserva_ram_gb`: FOREGROUND 3,0 · BACKGROUND 2,0 · BATTERY 3,0 · CONTENTION 3,0 (D-0072). `reserva_vram_mib`: FOREGROUND 768 · BACKGROUND 384.
 **Com o baseline medido (5,2 GB disponíveis, usuário ativo):** `slots_ram = floor((5,2−3,0)/0,4) = 5` → limitado pelo modo a **2 agentes**.

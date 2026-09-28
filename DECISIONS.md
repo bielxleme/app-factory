@@ -334,3 +334,144 @@ Pendências P-01, P-02, P-03, P-05, P-06, P-07 e P-15 da especificação `docs/s
 - **Motivo:** o módulo é pequeno, protegido (D-0051), coberto por testes e fixa a matriz de 12 §11 antes da API; retirá-lo exigiria mudar código e testes, rebaixar uma verificação ativa dos guardrails e revalidar no Windows, sem ganho de segurança.
 - **Alternativa rejeitada:** retirar ou adiar `core/auth.py` para a 2.6.
 - **Status:** aprovada pelo usuário (2026-09-27). Decide P-08; atualiza a escolha provisória registrada em D-0055; complementa D-0027.
+
+---
+
+# Fase 2.3 — Decisões do Resource Manager (2026-09-27) · base: commit `f44ac72`
+
+Pendências P23-01 a P23-10 da especificação `docs/specs/fase-2.3-resource-manager.md` (§9). Todas **aprovadas pelo usuário em 2026-09-27**, conforme as recomendações da §9. Aplicadas somente à documentação; nada implementado. As pendências P-04, P-09, P-10, P-12, P-13 e P-14 da Fase 2.2 continuam independentes e abertas.
+
+## D-0058 · 2026-09-27 · Coleta de métricas somente com a biblioteca padrão; NVML via `ctypes` (P23-01)
+- **Decisão:** as sondas do Resource Manager usam **somente a biblioteca padrão**: APIs Win32 via `ctypes` e, para a coleta NVIDIA principal, a NVML pela `nvml.dll` do driver, também via `ctypes`. **Não** se usa psutil nem nvidia-ml-py, e o caminho principal **não** abre subprocesso `nvidia-smi`. Nenhuma dependência nova (D-0042).
+- **Fallback `nvidia-smi` (implementado, permitido e isolado — não é só uma menção documental):** `nvidia-smi --query-gpu` é um fallback **implementado** na 2.3, conforme a especificação (§9, opção (b)), sujeito a estas regras: (1) existe **exclusivamente** em `src/appfactory/resources/probes/nvidia.py`; (2) só é usado quando a NVML estiver indisponível ou falhar — o caminho principal nunca abre subprocesso; se o fallback também falhar, vale o pior caso (05 §1); (3) está **sujeito ao AC-06**: a lista de subprocessos permitidos em `tests/unit/test_repo_hygiene.py` é ampliada, de forma aditiva, **somente** com `resources/probes/nvidia.py`; (4) **nenhum outro módulo** pode invocar `nvidia-smi` (verificação G23-30 da especificação); (5) somente consulta, sem `shell=True`.
+- **Consequência:** as referências que apresentavam psutil e nvidia-ml-py como tecnologia prevista do Resource Manager foram atualizadas no fechamento documental da 2.3: `01-componentes.md` §4, `05-resource-manager.md` §1, `11-tecnologias.md` e `13-diagramas.md` §4. Referências explicitamente históricas foram preservadas.
+- **Motivo:** D-0042 proíbe dependências sem decisão; o PyPI está bloqueado na VM de verificação; o AC-06 da 2.2 restringe subprocessos.
+- **Alternativas rejeitadas:** (a) adicionar psutil + nvidia-ml-py; (c) biblioteca padrão sem fallback.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-01; complementa D-0042.
+
+## D-0059 · 2026-09-27 · Leitura do `/api/ps` do Ollama; todo modelo conta como de terceiros até a 2.5 (P23-02)
+- **Decisão:** na 2.3 a sonda de runtime local lê `GET http://127.0.0.1:11434/api/ps` **somente para leitura** e trata **todo** modelo carregado como de terceiros até existir o registro de posse (fatia 2.5, 06 §2.1): `vram_factory = 0` e toda VRAM vista no `/api/ps` entra em `vram_ollama_terceiros` (direção segura, 05 §1.1). Nenhuma chamada de escrita ao Ollama; nada é alterado na instalação, nas variáveis ou nos modelos (D-0034).
+- **Motivo:** a contabilidade de VRAM do WDDM (D-0032) precisa distinguir modelos de terceiros, e a posse só existe na 2.5.
+- **Alternativa rejeitada:** (b) não ler o Ollama na 2.3 (VRAM só pelo total).
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-02; complementa D-0032.
+
+## D-0060 · 2026-09-27 · Admissão como biblioteca + CLI na 2.3; integração ao despacho de jobs na 2.4 (P23-03)
+- **Decisão:** a 2.3 entrega a admissão (`ResourceManager.admit`, lease de GPU em memória) **somente como biblioteca e CLI** (`af resources admit` é simulação: nada é reservado). O Job Manager não muda: nenhuma transição `QUEUED → WAITING`, nenhuma mudança no `claim`, nenhuma mudança de estado de job por decisão de recurso. A integração da admissão ao despacho de jobs fica para a **Fase 2.4** (daemon).
+- **Motivo:** `QUEUED → WAITING` não existe na máquina de estados (03), o despacho contínuo é do daemon (2.4) e o núcleo do Job Manager é protegido (D-0051).
+- **Alternativas rejeitadas:** (b) `claim` consultar a admissão com `state_reason`; (c) nova transição `QUEUED → WAITING`.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-03. Obrigação registrada na `TASK_QUEUE.md` (2.4).
+
+## D-0061 · 2026-09-27 · Persistência por eventos na 2.3; tabelas estruturadas na 2.4 (P23-04)
+- **Decisão:** na 2.3 a persistência do Resource Manager é feita **somente por eventos** `resource.*` na tabela `events` existente (append-only). **Sem migração de schema** e sem alteração em `src/appfactory/jobs/store.py`. As tabelas `resource_samples` e `resource_decisions` (01 §4) ficam para a **Fase 2.4**.
+- **Motivo:** não há daemon para amostragem contínua; `store.py` é protegido (D-0051); escritor único do SQLite ainda transitório (D-0043, KI-0020).
+- **Alternativa rejeitada:** (a) migração de schema 2 na 2.3.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-04. Obrigação registrada na `TASK_QUEUE.md` (2.4).
+
+## D-0062 · 2026-09-27 · Saída do modo CRITICAL exige o STOP da fábrica liberado (P23-05)
+- **Decisão:** o modo CRITICAL só termina quando **todas** as condições de saída da política forem satisfeitas — RAM ≥ 2,5 GB **e** GPU ≤ 80 °C **e** disco de trabalho ≥ 10 GB por 60 s — **e** o STOP da fábrica estiver **liberado** (`factory_stop` inativo, liberado somente por `af resume-factory`, com confirmação do usuário — D-0028). **Apagar `.appfactory/STOP` nunca faz sair de CRITICAL.** O Resource Manager apenas **lê** `factory_stop` (fonte da verdade) e nunca o libera. A condição de entrada de 05 §2 não muda.
+- **Correção documental:** `05-resource-manager.md` §2 corrigido ("kill switch removido" substituído pela liberação registrada do STOP), eliminando a contradição com D-0028.
+- **Motivo:** o texto anterior de 05 §2 permitiria interpretar a remoção do arquivo como liberação, o que enfraqueceria o STOP (D-0028, 08 §9, 09 I6).
+- **Alternativa rejeitada:** (b) manter o texto de 05 §2.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-05; complementa D-0028 e D-0038.
+
+## D-0063 · 2026-09-27 · Histórico insuficiente para a janela ⇒ `WAIT`; `watch` acumula histórico (P23-06)
+- **Decisão:** enquanto não houver amostras suficientes para a janela de decisão exigida (60 s de CPU, 30 s de RAM/GPU, 120 s de saída de CONTENTION, 10 min de ociosidade — 05 §1–§2), `admit` responde **`WAIT`** (falha fechada) e a CLI indica "janela incompleta". `af resources watch` acumula histórico em primeiro plano para permitir as avaliações. As janelas de 05 não são reduzidas. Continua valendo a regra de partida de 01 §4 (2 amostras antes de qualquer admissão).
+- **Complemento (2026-09-27, fechamento documental da 2.3, aprovado pelo usuário):**
+  - **Fonte do histórico:** `admit` (biblioteca e `af resources admit`) **lê o histórico acumulado pelo `watch`** — eventos `resource.snapshot` na tabela `events` (D-0061). `admit` **não** coleta amostras para completar janelas e **não** espera 60 s.
+  - **Histórico suficiente:** para cada janela temporal exigida (05 §1–§2), amostras que cubram a janela inteira até o instante da consulta, sem lacuna entre amostras consecutivas e sem que a amostra mais recente seja mais antiga que a frequência da métrica em 05 §1; e no mínimo 2 amostras (01 §4). Sem `watch` em andamento, com histórico antigo ou com lacunas ⇒ **`WAIT`** ("janela incompleta").
+  - **Frequência do `watch`:** intervalo padrão de coleta de **1 s**; configurável **somente** pela opção `--interval S` já prevista na CLI da especificação — nenhuma chave nova em `config/resources.yaml`.
+  - **Eventos `resource.snapshot`:** cada amostra do `watch` vira um evento `resource.snapshot`, **append-only** nesta fase (triggers `events_no_update`/`events_no_delete` da 2.1). **Sem retenção nem limpeza automática** nesta fase.
+  - O intervalo de 1 s não encurta nenhuma janela de 05 §1–§2 nem a histerese de 05 §2: janelas continuam medidas em tempo.
+- **Motivo:** sem daemon (2.4) não há amostragem contínua; decidir sem a janela seria otimista.
+- **Alternativa rejeitada:** (b) janelas reduzidas na 2.3.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-06; complementada no fechamento documental da 2.3 (fonte do histórico, frequência do `watch`, eventos append-only). Revisada por D-0070 (`sampling.interval_s: 1` como padrão do `watch`) e D-0071 (ociosidade é leitura instantânea; sai da lista de janelas).
+
+## D-0064 · 2026-09-27 · Escopo do guardrail I4 para `config/resources.yaml` (P23-07)
+- **Decisão:** o guardrail `I4.resources_config_within_ceilings` verifica os tetos do `RESOURCE_POLICY.md` e a margem de medição ≥ 256 MiB (D-0032) **e também** impede afrouxar qualquer limiar de `05-resource-manager.md` §4: reservas não podem ser menores e limiares de RAM, CPU e temperatura não podem ser mais permissivos que os valores canônicos (D-0038).
+- **Motivo:** os limiares de 05 §4 não tinham "direção segura" formal; sem isso, `config/resources.yaml` poderia ser afrouxado dentro dos tetos.
+- **Alternativa rejeitada:** (a) I4 verificar só a tabela de tetos + margem.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-07; complementa D-0038 e D-0048.
+
+## D-0065 · 2026-09-27 · Limites do S1h continuam nas constantes da 2.2 (P23-08)
+- **Decisão:** `config/resources.yaml` **não** ganha seção `sandbox` na 2.3; os limites do S1h continuam nas constantes da 2.2 (`security/sandbox`, `CEILINGS`/`limits_for`) até a 2.6. **P-09 continua aberta** (escolha provisória em D-0055).
+- **Motivo:** evitar decidir P-09 indiretamente na 2.3.
+- **Alternativa rejeitada:** (a) seção `sandbox` no `resources.yaml`.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-08; não decide P-09.
+
+## D-0066 · 2026-09-27 · Matriz KI-0017: M1–M4 na 2.3, M5 na 2.5 (P23-09)
+- **Decisão:** a 2.3 executa e registra os cenários M1 (ocioso), M2 (vídeo no navegador), M3 (jogo abrindo) e M4 (Ollama usado por outra ferramenta). O cenário M5 (inferência da fábrica + jogo) fica para a **Fase 2.5**, pois depende do Model Router e do registro de posse.
+- **Alternativa rejeitada:** (b) exigir M5 na 2.3.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-09. Obrigação registrada na `TASK_QUEUE.md` (2.5).
+
+## D-0067 · 2026-09-27 · Sonda Linux mínima só para desenvolvimento/VM (P23-10)
+- **Decisão:** `src/appfactory/resources/probes/linux.py` é uma sonda mínima, **só para desenvolvimento e VM** (`/proc/meminfo`, `/proc/stat`, `statvfs`); o que não existir retorna o **pior caso** (05 §1). A plataforma-alvo continua sendo o Windows (D-0013).
+- **Alternativa rejeitada:** (b) só sondas falsas fora do Windows.
+- **Status:** aprovada pelo usuário (2026-09-27). Decide P23-10.
+
+## D-0068 · 2026-09-27 · `GlobalMemoryStatusEx` é a fonte oficial de RAM do Resource Manager
+- **Decisão:** a RAM do Resource Manager (disponível, total e commit livre) é lida pela API Win32 `GlobalMemoryStatusEx` via `ctypes` (`ullAvailPhys`, `ullTotalPhys`, `ullAvailPageFile`), conforme a especificação da 2.3 (§2.1). WMI/CIM **não** é fonte do Resource Manager. Referências da 2.3 atualizadas: `01-componentes.md` §4 (entradas) e `05-resource-manager.md` §1 (commit livre). Referências a WMI/CIM de outros contextos foram preservadas: medição da temperatura da CPU (05 §1, `RESOURCE_POLICY.md`) e a equivalência com WMI `FreeVirtualMemory` usada para comparar com `measure-hardware.ps1` (especificação §2.1).
+- **Motivo:** coerência com D-0058 (somente biblioteca padrão, APIs Win32 via `ctypes`); WMI/CIM exigiria COM ou subprocesso.
+- **Status:** aprovada pelo usuário (2026-09-27). Complementa D-0058.
+
+## D-0069 · 2026-09-27 · Histerese dos modos medida por tempo decorrido contínuo de 10 s
+- **Decisão:** a regra normativa de 05 §2 continua sendo **10 s**; ela **não** é reinterpretada como "2 avaliações a cada 5 s". A coleta pode ocorrer a cada 1 s (D-0063), mas a mudança de modo só vale quando a condição do novo modo estiver satisfeita de forma **contínua por pelo menos 10 s de tempo decorrido**, medido assim:
+  - relógio: **tempo ativo monotônico** (`core/clock.py`, `active_ms`; 15 §4) — nunca o relógio de parede;
+  - início da contagem: primeira amostra em que a condição do novo modo aparece; a mudança vale na primeira amostra em que `agora − início ≥ 10 s` com a condição ainda satisfeita;
+  - continuidade: qualquer amostra em que a condição deixe de valer **reinicia** a contagem; lacuna entre amostras consecutivas maior que a frequência da métrica em 05 §1, troca de `boot_id` ou retorno do sono (15 §4) também **reiniciam** a contagem;
+  - o número de amostras não conta: 10 amostras a 1 s em 9 s não bastam; 2 amostras separadas por 10 s só bastam se não houver lacuna maior que a frequência da métrica;
+  - exceções de 05 §2 inalteradas: entrada em CRITICAL e volta do usuário são imediatas; as saídas com janela própria (CRITICAL 60 s, BATTERY 60 s, CONTENTION 120 s) seguem a mesma medição contínua por tempo, com as suas durações;
+  - cada evento `resource.snapshot` registra o tempo ativo e o `boot_id`, para que `admit` aplique a mesma regra sobre o histórico do `watch` (D-0063).
+- **Motivo:** com coleta a 1 s, contar "2 avaliações" reduziria a histerese para ~2 s e enfraqueceria a regra de 05 §2.
+- **Status:** aprovada pelo usuário (2026-09-27). Complementa D-0018, D-0038 e D-0063.
+
+## D-0070 · 2026-09-27 · `sampling` sem `mode_confirmations`; histerese fixa de 10 s; `interval_s: 1`
+- **Decisão:** `config/resources.yaml` **não** tem `mode_confirmations`. A histerese de 10 s é regra normativa **fixa** (D-0069) e **não é configurável**; nenhuma chave nova de duração é criada. A chave existente `sampling.interval_s` passa a valer **1** e é a cadência padrão do `watch` (D-0063); `af resources watch --interval S` só a substitui naquela execução. Um intervalo maior não afrouxa nada: lacunas acima da frequência de 05 §1 tornam o histórico insuficiente (`WAIT`, D-0063) e reiniciam a histerese (D-0069). Os demais campos de `sampling` (`cpu_window_s: 60`, `gpu_window_s: 30`) não mudam.
+- **Aplicação documental:** exemplo de `05-resource-manager.md` §9 atualizado; texto da histerese em 05 §2 e em `13-diagramas.md` §4 alinhado a D-0069 (10 s contínuos, não "2 avaliações/leituras").
+- **Motivo:** `mode_confirmations: 2` contradizia D-0069 (histerese por tempo) e `interval_s: 5` contradizia o padrão de 1 s do `watch` (D-0063).
+- **Status:** aprovada pelo usuário (2026-09-27). Resolve o conflito A do plano de implementação da 2.3; complementa D-0063 e D-0069.
+
+## D-0071 · 2026-09-27 · Ociosidade é leitura instantânea
+- **Decisão:** a ociosidade do usuário é lida como **valor atual** (`GetLastInputInfo`, 05 §1), sem histórico. A decisão BACKGROUND/FOREGROUND usa o valor atual: ocioso ≥ 10 min ⇒ condição de BACKGROUND (sujeita à histerese de 10 s, D-0069); qualquer entrada do usuário ⇒ FOREGROUND imediato (05 §2). `admit` **não** exige 10 min de histórico. O histórico temporal (D-0063) é exigido **somente** pelas métricas com janela explícita na política: CPU média de 60 s, RAM mínima de 30 s, GPU média de 30 s, crescimento de `vram_terceiros` em 30 s e as saídas de modo por tempo (CRITICAL 60 s, BATTERY 60 s, CONTENTION 120 s).
+- **Motivo:** D-0063 citava "10 min de ociosidade" como janela de histórico, em conflito com 05 §1 ("valor atual").
+- **Status:** aprovada pelo usuário (2026-09-27). Resolve o conflito B do plano de implementação da 2.3; corrige a lista de janelas de D-0063.
+
+## D-0072 · 2026-09-27 · Reserva de RAM do modo CONTENTION = 3,0 GB
+- **Decisão:** `reserves.ram_gb.CONTENTION = 3.0`. Em CONTENTION, esse valor é a `reserva[modo]` das fórmulas de `slots_ram`, de processos pesados (`ram_disp ≥ reserva + 1,0`) e de S2 (`ram_disp ≥ reserva + 3,0 GB`). Vale como valor canônico para o guardrail I4 (D-0064: reserva não pode ser menor).
+- **Aplicação documental:** exemplo de `05-resource-manager.md` §9, `04` §8 (lista de reservas) e especificação da 2.3.
+- **Motivo:** 05 §9 só definia reservas para FOREGROUND, BACKGROUND e BATTERY, mas CONTENTION admite 2 agentes e 1 pesado; 3,0 GB é a maior reserva existente (direção segura).
+- **Status:** aprovada pelo usuário (2026-09-27). Resolve o conflito C do plano de implementação da 2.3; complementa D-0038 e D-0064.
+
+---
+
+# Fase 2.3 — Implementação (2026-09-27) · base: commit `f44ac72`
+
+## D-0073 · 2026-09-27 · Arquivos protegidos da 2.3 e escolhas de implementação do Resource Manager
+- **Registro (AGENTS §3.15, D-0051):** a sessão dirigida pelo usuário **criou** arquivos em caminhos protegidos — `config/resources.yaml` e `src/appfactory/resources/**` (`policy.py`, `probes/{__init__,windows,nvidia,runtime_local,linux}.py`, `gpu_accounting.py`, `modes.py`, `history.py`, `manager.py`, `compare.py`) — e alterou, de forma **aditiva**, arquivos protegidos:
+  - `src/appfactory/cli/main.py`: grupo `af resources snapshot|mode|admit|watch|compare` (nenhum comando existente mudou);
+  - `tests/guardrails/test_resource_limits.py`: o teste `I4.resources_config_within_ceilings` deixa de só importar o módulo e verifica tetos, margem, reservas (CONTENTION 3,0 GB) e limiares canônicos, com cópia literal própria;
+  - `tests/guardrails/MANIFEST.json`: `I4.resources_config_within_ceilings` passa de `pending` a `active` (D-0048, regra 3); nenhuma outra verificação mudou;
+  - `tests/unit/test_repo_hygiene.py` (não protegido): lista do AC-06 ganha só `resources/probes/nvidia.py`; novo teste G23-30 (`nvidia-smi` citado só nesse módulo).
+  Não foram alterados: Job Manager (`jobs/**`), `core/stop.py`, `core/clock.py`, `security/**`, `pyproject.toml`, `protected-paths.yaml`, `commands.yaml`, `measure-hardware.ps1`, Ollama. Nenhuma tabela, índice ou migração nova.
+- **Escolhas de implementação** (dentro de D-0058 a D-0072; nenhuma afrouxa limiar ou teto):
+  - constantes fixas, não configuráveis, em `resources/policy.py`: lacuna máxima entre amostras 5 s (menor frequência de 05 §1), tolerância de sono 1 s (relógio com suspensão — `GetTickCount64`/`CLOCK_BOOTTIME` — contra o tempo ativo), saída de disco de CRITICAL 10 GB (05 §2), `vram_base` 105 MiB (medido; recalibrar só por decisão, KI-0017), 0,4 GB por agente e +1,0 GB por pesado (04 §8);
+  - esquema fechado de `config/resources.yaml`: chave desconhecida ou ausente torna a política inválida (falha fechada);
+  - modo inicial nunca mais permissivo que FOREGROUND (CRITICAL/BATTERY/CONTENTION valem de imediato na partida; BACKGROUND só pela histerese); modo sem reserva própria usa a maior reserva definida;
+  - valores desconhecidos: RAM/disco 0, CPU 100%, temperatura da GPU crítica, energia = bateria 0%, tela cheia = sim, ociosidade = ativo; lista de processos desconhecida não dispara CONTENTION sozinha (05 §1); na VM Linux o modo resulta sempre CRITICAL;
+  - admissão: STOP da fábrica (tabela ou arquivo-gatilho, lidos a cada consulta) ⇒ `DENY`; CRITICAL ⇒ `WAIT`; tier desconhecido ⇒ tratado como T2; `gpu` sem estimativa de VRAM ⇒ `DENY`; BATTERY com bateria abaixo de `pause_below_pct` ⇒ `WAIT` exceto P0; histórico gerado com outra política (hash) ou outro boot ⇒ `WAIT`;
+  - contadores de agentes/pesados, lease de GPU e o limite "1 admissão por minuto" existem só na memória do processo (entre processos na 2.4, D-0060);
+  - `resource.probe_failed` é gravado na transição ok → falha de cada sonda; a lista de falhas vai em todo `resource.snapshot`; `af resources snapshot` não grava eventos;
+  - `af resources watch --count N` (opção adicional, para validação) limita o número de amostras.
+- **Status:** registrada na implementação (2026-09-27). Validação no Windows, comparação com `measure-hardware.ps1` e matriz KI-0017 (M1–M4) pendentes do usuário.
+
+## D-0074 · 2026-09-27 · Correção: uso alheio da GPU avaliado pela média de 30 s (05 §1)
+- **Defeito encontrado na validação real (matriz KI-0017, M2):** `modes.py` avaliava o critério de CONTENTION "uso alheio da GPU > 20%" pelo **valor instantâneo** de cada amostra, mas 05 §1 define a janela de decisão da GPU como **média de 30 s**. Com vídeo no navegador, o uso real alternou entre 0% e ~40% a cada amostra; pelo valor instantâneo a condição nunca ficava contínua por 10 s (D-0069), o que tornava o critério mais permissivo do que a especificação.
+- **Correção (só o necessário):** o critério passa a usar a média das amostras **sem chamada da fábrica** (05 §1.1) nos últimos `sampling.gpu_window_s` (30 s) de tempo ativo; valor desconhecido entra como 100% (pior caso); a média é zerada nos mesmos casos em que a continuidade é perdida (D-0069) e registrada em `reasons.gpu_util_avg`. Os demais critérios não mudam (temperatura e VRAM continuam pela leitura instantânea, que é mais restritiva na entrada). Teste novo `test_g23_16_foreign_util_uses_30s_average` (falharia com o valor instantâneo).
+- **Efeito nos dados reais** (reprocessamento dos JSONL, só análise): amostras com o critério de uso da GPU ativo — M1 0 → 0; M2 62 → 91; M3 69 → 98; M4 16 → 38. Modo final igual em M1–M4 (M2–M4 continuam em CRITICAL por RAM).
+- **Status:** registrada na validação (2026-09-27). Arquivos: `src/appfactory/resources/modes.py` (protegido; sessão dirigida pelo usuário) e `tests/unit/test_resource_modes.py`. Exige repetir `uv run pytest` e os guardrails no Windows.
+
+## D-0075 · 2026-09-27 · Correção: `/api/ps` a cada 15 s, em segundo plano; `watch` mantém o intervalo nominal
+- **Defeito encontrado na validação real (rodada 2.3b, M2 e M3):** a sonda do Ollama era consultada em **toda** amostra, de forma síncrona. Com o Ollama sem responder, cada consulta esperava o timeout de 2 s e o intervalo real do `watch` passou de ~1 s para ~3,1 s (180 amostras em ~555 s). Isso contrariava 05 §1 (`/api/ps` a cada 15 s) e o intervalo padrão de 1 s (D-0063, D-0070).
+- **Correção (só o necessário):** `resources/probes/runtime_local.py` consulta `/api/ps` **no máximo a cada 15 s**; a 1ª consulta é síncrona (para `snapshot`/`compare` de uma amostra) e as seguintes rodam **em segundo plano** (uma de cada vez), sem nunca atrasar a amostra. Entre consultas, cada amostra usa o último resultado concluído. **Fail-closed mantido:** consulta que falha, ou resultado com mais de 32 s (2 × 15 s + timeout), deixa os modelos desconhecidos (`None`, pior caso) e registra falha `runtime_local` em **toda** amostra até a próxima consulta bem-sucedida. A amostra passa a registrar `ollama_age_s`. `manager.watch` desconta o tempo gasto em cada amostra, de modo que o período fica no intervalo nominal (1 s) em vez de intervalo + duração da amostra.
+- **Não muda:** critérios G23/AC23, precedência dos modos, janelas, histerese, limiares, D-0059 (somente `GET /api/ps`).
+- **Testes:** `OllamaSchedule` em `tests/unit/test_probes.py` (no máximo 1 consulta a cada 15 s; consulta vencida só agendada; sem duplicar consulta em andamento; falha registrada e pior caso até o sucesso; resultado velho = pior caso; em tempo real, Ollama lento e com falha não altera a cadência) e desconto do tempo da amostra em `tests/integration/test_cli_resources.py`.
+- **Status:** registrada na validação (2026-09-27). Arquivos: `resources/probes/runtime_local.py`, `resources/probes/__init__.py`, `resources/manager.py` (protegidos; sessão dirigida pelo usuário), `tests/fakes/probes.py`, `tests/unit/test_probes.py`, `tests/integration/test_cli_resources.py`. Exige repetir `uv run pytest` e os guardrails no Windows.

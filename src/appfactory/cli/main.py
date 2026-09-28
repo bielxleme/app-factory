@@ -1,7 +1,8 @@
-"""CLI mínima `af` (Fases 2.1–2.2). Não é a interface completa da App Factory.
+"""CLI mínima `af` (Fases 2.1–2.3). Não é a interface completa da App Factory.
 
 Fase 2.2 (aditivo): `af guard check-diff|check-path`, `af audit verify`, `af guardrails run|status`.
-Códigos de saída: 0 = ok/permitido; 3 = rejeitado/negado/adulterado; 2 = erro."""
+Fase 2.3 (aditivo, D-0073): `af resources snapshot|mode|admit|watch|compare` (somente leitura e decisão).
+Códigos de saída: 0 = ok/permitido; 3 = rejeitado/negado/adulterado/fora da tolerância; 2 = erro."""
 from __future__ import annotations
 
 import argparse
@@ -100,6 +101,23 @@ def build_parser() -> argparse.ArgumentParser:
     gr = sub.add_parser("guardrails", help="guardrails I1–I7 (D-0048)").add_subparsers(dest="action", required=True)
     gr.add_parser("run", help="roda a suíte pelo comando fixo e mostra as pendências")
     gr.add_parser("status", help="estado do manifesto (pending nunca é aprovação)")
+
+    rs = sub.add_parser("resources", help="Resource Manager (Fase 2.3; somente leitura e decisão)").add_subparsers(
+        dest="action", required=True)
+    rsn = rs.add_parser("snapshot", help="ResourceSnapshot (12 §7); não grava nada")
+    rsn.add_argument("--samples", type=int, default=2, help="leituras (padrão 2; 01 §4)")
+    rs.add_parser("mode", help="modo atual pelo histórico do watch (sem ele: modo instantâneo)")
+    rad = rs.add_parser("admit", help="simulação de admissão sobre o histórico do watch (nada é reservado)")
+    rad.add_argument("--kind", required=True, choices=["agent", "heavy", "gpu", "s2"])
+    rad.add_argument("--tier", choices=["T0", "T1", "T2"])
+    rad.add_argument("--model")
+    rad.add_argument("--est-vram-mib", type=float)
+    rad.add_argument("--priority", type=int, default=1)
+    rwa = rs.add_parser("watch", help="amostragem em primeiro plano (padrão sampling.interval_s = 1 s; D-0070)")
+    rwa.add_argument("--interval", type=float, help="intervalo desta execução, em segundos")
+    rwa.add_argument("--count", type=int, help="número de amostras (padrão: até Ctrl+C)")
+    rco = rs.add_parser("compare", help="compara com o snapshot de tools/diagnostics/measure-hardware.ps1")
+    rco.add_argument("--hardware-snapshot", required=True)
     return p
 
 
@@ -153,9 +171,60 @@ def _security(args) -> int:
     return 1
 
 
+def _resources(args) -> int:
+    """Fase 2.3 (D-0060..D-0072): biblioteca + CLI; nenhum estado de job muda; só eventos resource.*."""
+    from pathlib import Path
+
+    from appfactory.resources.compare import compare_hardware, load_hardware_snapshot
+    from appfactory.resources.manager import AdmissionRequest, ResourceManager
+
+    rm = ResourceManager(Path(args.root or discover_root()).resolve())
+    try:
+        if args.action == "snapshot":
+            _print(rm.snapshot(samples=max(1, args.samples)), True)
+            return 0
+        if args.action == "mode":
+            _print(rm.mode(), True)
+            return 0
+        if args.action == "admit":
+            adm = rm.admit(AdmissionRequest(args.kind, args.priority, est_vram_mib=args.est_vram_mib,
+                                            model=args.model, tier=args.tier))
+            _print({**adm.to_dict(), "simulation": True}, True)
+            return 0 if adm.granted else 3
+        if args.action == "watch":
+            def show(p: dict) -> None:
+                if args.json:
+                    print(json.dumps(p, ensure_ascii=False), flush=True)
+                    return
+                smp, st = p["sample"], p["mode_state"]
+                print(f"{p['ts']} modo={st['mode']:10} candidato={st['candidate']:10} "
+                      f"cpu={smp['cpu_pct'] if smp['cpu_pct'] is None else round(smp['cpu_pct'], 1)}% "
+                      f"ram_livre={smp['ram_available_gb'] if smp['ram_available_gb'] is None else round(smp['ram_available_gb'], 2)} GB "
+                      f"vram_terceiros={p['account']['foreign_mib']} MiB falhas={len(p['failures'])}", flush=True)
+            try:
+                rm.watch(interval_s=args.interval, count=args.count, on_sample=show)
+            except KeyboardInterrupt:
+                pass
+            return 0
+        if args.action == "compare":
+            try:
+                hw = load_hardware_snapshot(args.hardware_snapshot)
+            except OSError as exc:
+                print(f"erro: {exc}", file=sys.stderr)
+                return 2
+            report = compare_hardware(rm.sample(), hw)
+            _print(report, True)
+            return 0 if report["ok"] else 3
+        return 1
+    finally:
+        rm.close()
+
+
 def _dispatch(args) -> int:
     if args.cmd in ("guard", "audit", "guardrails"):
         return _security(args)
+    if args.cmd == "resources":
+        return _resources(args)
     if args.cmd == "db":
         root = args.root or discover_root()
         conn = connect(FactoryPaths(root).db)

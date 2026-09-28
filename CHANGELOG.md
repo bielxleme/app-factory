@@ -4,7 +4,54 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
-### Fase 2.2 — Validação pós-commit (2026-09-27) — pendente de commit
+### Fase 2.3 — Resource Manager: rodada 2.3b e correção D-0075 (2026-09-27) — **PENDENTE**; sem commit
+
+#### Verificado
+- Windows após D-0074: `uv run pytest` 211 passed, 7 skipped; guardrails 22/6; M2 PASS (CONTENTION após tela cheia, sem `critical`); M3 e M4 não conclusivos (CRITICAL por RAM; M4 com `qwen3:8b` local contabilizado como terceiros).
+
+#### Corrigido
+- `resources/probes/runtime_local.py`: `/api/ps` no máximo a cada 15 s (05 §1), em segundo plano depois da 1ª consulta; falha ou resultado velho = pior caso registrado em toda amostra. `resources/manager.py`: o `watch` desconta o tempo da amostra e mantém o intervalo nominal de 1 s. Antes, com o Ollama sem responder, o intervalo real era ~3,1 s (D-0075). Linux: 223 testes OK (3.10–3.13).
+
+### Fase 2.3 — Resource Manager: validação no Windows (2026-09-27) — **PENDENTE**; sem commit
+
+#### Verificado
+- Windows (CPython 3.13.14): `uv run pytest` 210 passed, 7 skipped; guardrails 22 passed, 6 skipped; G23-27 (sondas reais) passou; `af resources compare` `"ok": true`; `git diff --check` sem erro; M1–M4 executados sem falha de sonda (M1 conforme; M2–M4 não demonstraram o critério de cada cenário — ver `TEST_STATUS.md`).
+
+#### Corrigido
+- `src/appfactory/resources/modes.py`: o critério "uso alheio da GPU > 20%" passa a usar a **média de 30 s** das amostras sem chamada da fábrica (05 §1), e não o valor instantâneo — defeito encontrado nos dados reais de M2 (D-0074). Novo teste em `tests/unit/test_resource_modes.py`. Linux: 218 testes OK (3.10–3.13).
+
+#### Alterado
+- `TEST_STATUS.md`, `COMMAND_LOG.md`, `DECISIONS.md` (D-0074), `KNOWN_ISSUES.md` (KI-0017), `docs/runbooks/recursos.md` (observações da 1ª execução), especificação e `14-plano-fase-2.md` (status), `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`, `.appfactory/job.json`. CP-0006 **não** gerado.
+
+### Fase 2.3 — Resource Manager: implementação (2026-09-27) — pendente de validação no Windows e de commit
+
+#### Adicionado
+- `config/resources.yaml` (subconjunto JSON, protegido): política de 05 §9 sem `mode_confirmations`, `sampling.interval_s: 1`, reserva de RAM de CONTENTION 3,0 GB (D-0070, D-0072).
+- `src/appfactory/resources/`: `policy.py` (esquema fechado, tetos e limiares canônicos — D-0064), `probes/{windows,nvidia,runtime_local,linux}.py` (somente biblioteca padrão; NVML via `ctypes`, `nvidia-smi` só como fallback isolado; `GlobalMemoryStatusEx`; `/api/ps` somente leitura — D-0058, D-0059, D-0067, D-0068), `gpu_accounting.py` (05 §1.1), `modes.py` (histerese por tempo ativo — D-0069; ociosidade instantânea — D-0071; saída de CRITICAL com STOP liberado — D-0062), `history.py` e `manager.py` (admissão sobre o histórico do `watch` — D-0063; eventos `resource.*` — D-0061), `compare.py` (AC23-07).
+- CLI `af resources snapshot|mode|admit|watch|compare`.
+- Testes G23-01…G23-32 (`test_resource_policy`, `test_resource_modes`, `test_gpu_accounting`, `test_admission`, `test_probes`, `test_cli_resources`, `tests/fakes/probes.py`); `docs/runbooks/recursos.md`; decisão D-0073.
+
+#### Alterado (aditivo; registrado em D-0073)
+- `src/appfactory/cli/main.py` (grupo `af resources`); `tests/guardrails/test_resource_limits.py` e `MANIFEST.json` (`I4.resources_config_within_ceilings` **active**); `tests/unit/test_repo_hygiene.py` (AC-06 com `resources/probes/nvidia.py`; G23-30).
+- Especificação da 2.3 (status), `14-plano-fase-2.md` (2.3 implementada, aguardando validação), `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`, `TEST_STATUS.md`, `COMMAND_LOG.md`, `.appfactory/job.json`.
+- Não alterados: Job Manager, `core/stop.py`, `core/clock.py`, `security/**`, `pyproject.toml`, Ollama, `measure-hardware.ps1`. Sem tabela ou migração nova. CP-0006 ainda não gerado.
+
+### Fase 2.3 — Resource Manager: especificação, decisões e fechamento documental (2026-09-27) — pendente de commit; **nada implementado**
+
+#### Adicionado
+- `docs/specs/fase-2.3-resource-manager.md` — especificação executável da Fase 2.3 (escopo E1–E11, componentes, APIs, matriz G23-01…G23-32, matriz manual KI-0017 M1–M4, critérios AC23-01…AC23-10, decisões P23-01…P23-10, ordem de implementação).
+- Decisões D-0068 (`GlobalMemoryStatusEx` como fonte oficial de RAM) e D-0069 (histerese por tempo decorrido contínuo de 10 s).
+- Decisões D-0070 (`sampling` sem `mode_confirmations`, histerese fixa, `interval_s: 1`), D-0071 (ociosidade instantânea) e D-0072 (reserva de RAM de CONTENTION 3,0 GB); exemplo de 05 §9, 05 §2, 04 §8 e 13 §4 alinhados.
+- Decisões D-0058 a D-0067 (P23-01 a P23-10), todas aprovadas pelo usuário; D-0058 ajustada (fallback `nvidia-smi` implementado, permitido e isolado em `probes/nvidia.py`, sujeito ao AC-06) e D-0063 complementada (`admit` lê o histórico do `watch`; `watch` a 1 s; `resource.snapshot` append-only, sem retenção) no fechamento documental.
+
+#### Alterado
+- `docs/architecture/05-resource-manager.md` (revisão 1.2): fontes das sondas (§1) alinhadas a D-0058; saída do modo CRITICAL exige o STOP da fábrica liberado — apagar `.appfactory/STOP` não libera (§2, D-0062).
+- `docs/architecture/01-componentes.md` §4, `11-tecnologias.md`, `13-diagramas.md` §4: psutil e nvidia-ml-py deixam de aparecer como tecnologia prevista do Resource Manager (D-0058).
+- `docs/architecture/14-plano-fase-2.md`: 2.3 especificada, decisões tomadas, pronta para implementação (não implementada); obrigações da 2.4 (D-0060, D-0061) e da 2.5 (D-0066).
+- `PROJECT_STATE.md`, `TASK_QUEUE.md`, `HANDOFF.md`.
+- Nenhum código, teste ou configuração alterado; `config/resources.yaml` não criado.
+
+### Fase 2.2 — Validação pós-commit (2026-09-27) — commit `f44ac72`
 
 #### Alterado
 - `CP-0005-fase2-2.json`: `validated_commit` = `6fb983c`, estado `phase_2_2_validated`.

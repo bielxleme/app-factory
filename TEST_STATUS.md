@@ -179,3 +179,109 @@ Ambiente: **Windows real** do usuário, `D:\Claude\app-factory`, `uv run` com **
 | V2.2-10 | `git diff --check 683b9e2 6fb983c` | VM | sem problemas |
 | V2.2-11 | Conteúdo do commit | VM | arquivos da 2.2 rastreados (ex.: `security/paths.py` com a correção 8.3, `core/auth.py`, `MANIFEST.json`, `protected-paths.yaml`, CP-0005, runbook); nenhum artefato de runtime rastreado |
 | V2.2-12 | `PYTHONPATH=src python3 -m unittest discover -s tests -t .` no commit `6fb983c` | VM (Python 3.10.12) | **Ran 164 tests — OK** (10 pulados). A validação real no Windows (V2.2-01/02: 157 passed, 7 skipped; guardrails 21 passed, 7 skipped) foi feita sobre o mesmo conteúdo, depois commitado em `6fb983c` |
+
+## Fase 2.3 — Implementação (2026-09-27) · base `f44ac72` · não commitada
+
+Ambientes: **VM** = Linux do Cowork, Python 3.10.12 · **Nuvem** = Linux, Python 3.11/3.12/3.13 (clone de `f44ac72` + arquivos da 2.3) · **Windows** = ainda não executado. Pytest indisponível na VM e na nuvem (PyPI bloqueado); testes `unittest` compatíveis com pytest. Comando: `PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .`.
+
+| # | Suíte / verificação | IDs | Ambiente | Resultado |
+| --- | --- | --- | --- | --- |
+| T2.3-01 | `tests/unit/test_resource_policy.py` — política real, subconjunto JSON, `mode_confirmations`/chave desconhecida recusadas, tetos, limiares não afrouxáveis (5) | G23-01, 02, 03 | VM, Nuvem | OK |
+| T2.3-02 | `tests/unit/test_resource_modes.py` — ordem, pior caso, modo inicial, histerese de 10 s por tempo ativo (9 s × 10 s, interrupção, lacuna, boot, sono, nº de amostras), CRITICAL e volta do usuário imediatas, ociosidade instantânea, saídas 120/60/60 s, STOP, uso alheio, heurísticas, temperatura, disco (13) | G23-04…07, 16…19 | VM, Nuvem | OK |
+| T2.3-03 | `tests/unit/test_gpu_accounting.py` (3) | G23-15 | VM, Nuvem | OK |
+| T2.3-04 | `tests/unit/test_admission.py` — partida/janelas, ociosidade sem histórico, `admit` só lê o histórico do `watch`, política/boot, STOP, CPU, RAM, fórmula, pesados, BATTERY, S2 e reserva de CONTENTION 3,0 GB, tiers, lease de GPU, temperatura, disco, falha de sonda, eventos de negação, contrato do snapshot (17) | G23-07…14, 18…21, 23, 31 | VM, Nuvem | OK |
+| T2.3-05 | `tests/unit/test_probes.py` — isolamento de falhas, NVML principal, fallback só após falha da NVML, invocação fixa sem shell, subprocesso só no fallback, só `GET /api/ps`, sem mudança de job nem SQL de escrita, `/api/ps`, sonda Linux (9 + 1 só-Windows) | G23-20, 22, 27, 30 | VM, Nuvem | OK; **G23-27 pulado (só Windows)** |
+| T2.3-06 | `tests/integration/test_cli_resources.py` — códigos e JSON da CLI, política inválida, `compare` (BOM, tolerância, arquivo ausente), só eventos e schema inalterado, `watch` 1 s/`--interval`, eventos append-only sem limpeza (4) | G23-24, 25, 28, 32 | VM, Nuvem | OK |
+| T2.3-07 | `tests/unit/test_repo_hygiene.py` — AC-06 com `resources/probes/nvidia.py`; `nvidia-smi` só nesse módulo | G23-30 | VM, Nuvem | OK |
+| T2.3-08 | Guardrails (`unittest` em `tests/guardrails`) | G23-26 | VM | **28 testes: 22 OK, 6 pulados** (`I4.resources_config_within_ceilings` ativo) |
+| T2.3-09 | Suíte completa | G23-29 | VM 3.10; Nuvem 3.11/3.12/3.13 | **217 OK (10 pulados**: 6 guardrails `pending`, 2 que exigem pytest, G22 só-Windows, G23-27 só-Windows) em cada versão |
+| T2.3-10 | CLI real numa raiz temporária (Linux) | — | VM | `snapshot`/`watch`/`admit`/`compare` executam; Linux resulta em CRITICAL (pior caso, esperado); `admit` => `WAIT` (janela incompleta) |
+| T2.3-11 | `git diff --check` + arquivos novos | AC23-10 | VM | sem erro |
+
+### Situação G23 / AC23 (antes do Windows)
+
+- **OK em Linux:** G23-01…26, G23-28 (com snapshot sintético), G23-29 (Linux), G23-30, G23-31, G23-32.
+- **Pendentes do Windows:** G23-27 (sondas reais), G23-28 com o `measure-hardware.ps1` real, G23-29 no Windows (pytest).
+- **AC23:** 03, 04, 05, 06, 09, 10 OK · 01, 02, 07 pendentes do Windows · 08 pendente (matriz KI-0017 M1–M4, usuário).
+- **Matriz KI-0017:** M1–M4 **não executados** (exigem o Windows do usuário); M5 na 2.5 (D-0066).
+
+## Validação da Fase 2.3 no Windows (2026-09-27, 10:59–11:17 -03:00) — base `f44ac72` + implementação não commitada
+
+Executada pelo usuário com `.appfactory\runtime\validate-2.3.ps1`; saídas em `.appfactory\runtime\validation-2.3\`, `ki0017-M1.jsonl` e `ki0017-M2/M3/M4.run1.jsonl` (renomeados para preservar a 1ª rodada; runtime, fora do Git). CPython 3.13.14, pytest 9.1.1.
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V2.3-01 | `uv run pytest` | Windows | **210 passed, 7 skipped, 0 failed** (61,9 s); pulados = 6 guardrails `pending` + sonda Linux |
+| V2.3-02 | Comando fixo dos guardrails | Windows | **22 passed, 6 skipped, 0 failed**; `I4.resources_config_within_ceilings` ativo |
+| V2.3-03 | `git diff --check` | Windows | sem erro (só o aviso LF→CRLF já conhecido de `measure-hardware.ps1`, arquivo não alterado) |
+| V2.3-04 | `measure-hardware.ps1` | Windows | `snapshot-20260927-110012.json`; RAM disponível 1,7 GB (92,8% em uso) |
+| V2.3-05 | `af resources compare` | Windows | **`"ok": true`**, código 0: CPUs 12 = 12; RAM 23,71 = 23,71; VRAM 6141 = 6141; C: 475,7 = 475,7; D: 465,7 = 465,7; bateria sim = sim; `probe_failures` vazio. (Durou 79 s na 1ª chamada `af`; as seguintes, 1–2 s — observação, sem efeito nos critérios) |
+| V2.3-06 | G23-27 (`-k "G23-27 or 27"` e chamada direta de `test_g23_27_real_windows_values`) | Windows | **passou** nas duas formas (sondas reais Windows + NVIDIA; `gpu_source = nvml`) |
+| V2.3-07 | `af resources snapshot` com todas as sondas reais | Windows | FOREGROUND; CPU, RAM, commit, GPU (NVML), VRAM, temperatura, potência, energia/bateria, disco, ociosidade, tela cheia, processos e Ollama (`loaded_models: []`) sem falha |
+| V2.3-08 | Repetição final: `uv run pytest` · guardrails · `git diff --check` · `git status --short` | Windows | 210 passed/7 skipped · 22 passed/6 skipped · sem erro · só os arquivos da 2.3 |
+
+### Matriz KI-0017 (M1–M4), avaliada contra `docs/runbooks/recursos.md`
+
+180 amostras por cenário (≈ 193–198 s de tempo ativo, intervalo 1,06–1,40 s), um único boot, **0 falhas de sonda**, 0 reinícios de continuidade, GPU sempre por NVML.
+
+| Cenário | Modo esperado (runbook) | Observado | Sinais medidos | Avaliação |
+| --- | --- | --- | --- | --- |
+| **M1** ocioso | FOREGROUND | FOREGROUND do início ao fim | RAM 1,76–2,00 GB; GPU 0%; VRAM de terceiros 116 MiB; tela cheia por ~6 s no fim (candidato CONTENTION ignorado pela histerese de 10 s) | **Conforme** |
+| **M2** vídeo | janela normal: FOREGROUND (salvo uso alheio > 20%); tela cheia: CONTENTION após 10 s | FOREGROUND até t=31 s, depois **CRITICAL** (RAM 1,49 → 0,46 GB) até o fim | tela cheia detectada (60 amostras); uso da GPU 0–100% alternado; VRAM de terceiros +1,2 GB (`vram_growth`) | **Não conclusivo**: CRITICAL por RAM tem precedência (comportamento correto, 05 §2); o modo esperado não pôde ser observado. Revelou o defeito do critério de uso da GPU (corrigido, D-0074) |
+| **M3** jogo | CONTENTION | **CRITICAL** o tempo todo (RAM 0,19–1,66 GB) | tela cheia (139 amostras); VRAM de terceiros até 1777 MiB (`vram_foreign` > 1536); uso da GPU até 87%; RAM 1,51–1,66 GB por ~14 s sem sair de CRITICAL (saída exige ≥ 2,5 GB por 60 s — correto) | **Não conclusivo** para o modo; detecção de CONTENTION demonstrada nas razões |
+| **M4** Ollama por outra ferramenta | `vram_ollama_foreign_mib` > 0; CONTENTION se VRAM de terceiros > 1536 MiB | **CRITICAL** (RAM 0,29–3,31 GB) | `/api/ps` **sem nenhum modelo** nas 180 amostras (sem falha); VRAM total subiu até 3,9 GB e caiu para 1,4 GB (contada como "outros") | **Não demonstrado**: nenhum modelo local do Ollama observado; não há evidência de defeito da sonda (sem falhas; `/api/ps` respondeu) — pode ter sido modelo `*-cloud` (KI-0009) |
+
+Calibração: sem dados de inferência da fábrica (M5, 2.5); VRAM ociosa observada 221 MiB (116 MiB acima do `vram_base` de 105 MiB) — nenhuma mudança sem decisão.
+
+### Correção D-0074 e revalidação em Linux
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| T2.3-12 | `modes.py`: uso alheio da GPU pela média de 30 s; novo `test_g23_16_foreign_util_uses_30s_average` | VM 3.10 | OK (o teste falharia com o valor instantâneo) |
+| T2.3-13 | Reprocessamento dos JSONL reais com o rastreador corrigido (análise) | VM | amostras com critério de uso da GPU: M1 0→0, M2 62→91, M3 69→98, M4 16→38; modo final igual |
+| T2.3-14 | Suíte completa | VM 3.10; Nuvem 3.11/3.12/3.13 | **218 OK (10 pulados)** em cada versão |
+| T2.3-15 | Guardrails (`unittest`) · `git diff --check` | VM | 22 OK, 6 pulados · sem erro |
+
+### Situação após a validação (2026-09-27)
+
+- **G23-01…G23-32:** todos OK em Linux; no Windows, 210 passed incluindo G23-27 (sondas reais) e G23-28 (`compare` real). **G23-16 foi ampliado pela correção D-0074 e precisa rodar de novo no Windows.**
+- **AC23:** 02, 03, 04, 05, 06, 07, 09, 10 OK · **01 PENDENTE** (repetir `uv run pytest` no Windows após D-0074) · **08 PENDENTE** (M1 conforme; M2–M4 executados e registrados, mas sem demonstrar o critério de cada cenário).
+- **CP-0006:** não gerado.
+
+## Revalidação da Fase 2.3 no Windows — rodada 2.3b (2026-09-27, 11:35–12:47 -03:00) e correção D-0075
+
+Executada pelo usuário com `.appfactory\runtime\validate-2.3b.ps1`; saídas em `.appfactory\runtime\validation-2.3b\` e `ki0017-M2/M3/M4.jsonl` (a 1ª rodada está em `*.run1.jsonl`).
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| V2.3-09 | `uv run pytest tests/unit/test_resource_modes.py` | Windows | 14 passed (inclui G23-16 da média de 30 s, D-0074) |
+| V2.3-10 | `uv run pytest` (início e fim da rodada) | Windows | **211 passed, 7 skipped** nas duas execuções |
+| V2.3-11 | Guardrails (início e fim) | Windows | **22 passed, 6 skipped** nas duas |
+| V2.3-12 | `git diff --check` | Windows | sem erro (só o aviso LF→CRLF conhecido) |
+
+| Cenário | RAM antes | Observado | Avaliação contra o runbook |
+| --- | --- | --- | --- |
+| **M2** vídeo | 3,92 GB | FOREGROUND em janela normal; tela cheia a partir de 93,6 s ⇒ CONTENTION em 106,1 s (≥ 10 s contínuos); fim em CONTENTION com `gpu_util` (média 21,4%), `vram_foreign` e `fullscreen_or_d3d`, sem `critical`; RAM 2,30–3,00 GB | **PASS** |
+| **M3** jogo | 4,22 GB | CRITICAL nas 180 amostras (RAM 0,87–1,17 GB desde a 1ª); tela cheia 180/180, VRAM de terceiros ~3071 MiB, média de uso da GPU até 93,6% | **NÃO CONCLUSIVO** (modo esperado CONTENTION não observado; CRITICAL correto pela precedência) |
+| **M4** Ollama local | 3,93 GB | `qwen3:8b` local (`ollama ps` no meio e no fim; 65%/35% CPU/GPU, 11 GB); `vram_ollama_foreign_mib` 3840; `loaded_models` com o modelo; CRITICAL nas 180 amostras (RAM 0,19–0,82 GB); `vram_foreign` ~4421 MiB nas razões | **NÃO CONCLUSIVO** (contabilidade do Ollama como terceiros demonstrada; modo CONTENTION não observado) |
+
+Achado: em M2 e M3 a sonda `runtime_local` falhou (timeout do `/api/ps`) nas 180 amostras e o intervalo real do `watch` foi ~3,1 s (M4, com o Ollama respondendo: ~1,08 s). Tratado como pior caso (correto), mas a cadência contrariava 05 §1 e D-0070 ⇒ corrigido em D-0075.
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| T2.3-16 | `OllamaSchedule` (5 testes) + desconto do tempo da amostra no `watch` | VM 3.10 | OK (teste de tempo real repetido 3 vezes: OK) |
+| T2.3-17 | Suíte completa | VM 3.10; Nuvem 3.11/3.12/3.13 | **223 OK (10 pulados)** em cada versão |
+| T2.3-18 | Guardrails (`unittest`) · `git diff --check` | VM | 22 OK, 6 pulados · sem erro |
+
+Situação: **AC23-01** precisa de nova execução no Windows (o código mudou em D-0075; esperado 216 passed, 7 skipped) · **AC23-08 PENDENTE** (M1 e M2 PASS; M3 e M4 a repetir em condições controladas — caminho 1, sem mudar o critério) · CP-0006 não gerado.
+
+## Rodada 2.3c — preparação (2026-09-27) · Windows ainda não executado
+
+| # | Verificação | Ambiente | Resultado |
+| --- | --- | --- | --- |
+| T2.3-19 | `uv run pytest` | VM | **não executável na VM**: o `uv` precisa baixar o CPython 3.13 e o pytest, e a rede da VM recusa (túnel do proxy). Registrado como limitação do ambiente, não como falha de teste |
+| T2.3-20 | Suíte completa (`python3 -m unittest discover -s tests -t .`) | VM 3.10 | **223 OK (10 pulados)** |
+| T2.3-21 | Testes do Resource Manager (`test_resource_policy`, `test_resource_modes`, `test_gpu_accounting`, `test_admission`, `test_probes`, `test_cli_resources`, `test_repo_hygiene`) | VM 3.10 | **65 OK (1 pulado: G23-27, só Windows)** |
+| T2.3-22 | Guardrails (`unittest`) · `git diff --check` | VM | 22 OK, 6 pulados · sem erro |
+
+Script `.appfactory\runtime\validate-2.3c.ps1` (runtime, fora do Git): `uv run pytest`, guardrails, **M3** e **M4** (M2 não é repetido), portão de RAM ≥ 3,0 GB antes de cada cenário (e de novo com o jogo aberto / o modelo carregado), `ollama ps` com `qwen3:8b` obrigatório antes de M4 e conferido aos 45/90/135 s e depois; JSONL bruto preservado em `ki0017-M3.jsonl` e `ki0017-M4.jsonl` e resumo automático (modos, razões, RAM, tela cheia, VRAM de terceiros e do Ollama, modelos, `ollama_age_s`, falhas `runtime_local`, intervalos) com pré-classificação **NON-CONCLUSIVE** se houver CRITICAL/RAM. Os JSONL de M3/M4 da rodada 2.3b foram preservados como `ki0017-M3.run2.jsonl` e `ki0017-M4.run2.jsonl`; `ki0017-M2.jsonl` (2.3b, PASS) mantido.

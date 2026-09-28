@@ -75,6 +75,7 @@
 ## KI-0017 · Aberto (a validar na fatia 2.3) · Heurísticas de uso da GPU por terceiros
 - **Descrição:** a contabilidade de VRAM por diferença, a janela de observação e as heurísticas de tela cheia/processos (05 §1.1) são estimativas.
 - **Ação:** executar a matriz de validação (ocioso, vídeo, jogo, Ollama usado por outra ferramenta, inferência + jogo) e calibrar `overhead_contexto`, `vram_base` e `margem_medicao`.
+- **Situação (2026-09-27, 1ª execução no Windows):** M1 conforme; M2/M3 detectaram tela cheia, VRAM de terceiros (> 1536 MiB em M3) e uso da GPU, mas ficaram em CRITICAL por RAM baixa; M4 sem modelo no `/api/ps`. Encontrado e corrigido o critério de uso da GPU (média de 30 s, D-0074). Continua **aberto**: repetir M2–M4 (ver `docs/runbooks/recursos.md`); M5 na 2.5. VRAM ociosa observada: 221 MiB usados (116 acima do `vram_base` de 105 MiB) — recalibração só por decisão.
 
 ## KI-0018 · Resolvido (2026-09-26) · Caminhos Windows do código não executados em Windows
 - **Descrição:** `core/clock.py` (`QueryUnbiasedInterruptTime`, `NtQuerySystemInformation`) e `core/procinfo.py` (`OpenProcess`, `GetProcessTimes`, `GetExitCodeProcess`) só foram verificados por leitura; os testes rodaram em Linux (VM do Cowork, Python 3.10; nuvem, Python 3.11–3.13). O pytest em si não pôde ser executado (PyPI bloqueado nos dois ambientes); os testes são `unittest` compatíveis com pytest.

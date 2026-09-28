@@ -112,7 +112,7 @@
 ```
  Sondas (5 s)                          Decisao                          Atuacao
  +---------------------+     +----------------------------+     +-----------------------------+
- | psutil: CPU/RAM/bat |---->| 1. CRITICAL?  RAM<1,5 GB,  |     | admit(agent|heavy|gpu)      |
+ | ctypes: CPU/RAM/bat |---->| 1. CRITICAL?  RAM<1,5 GB,  |     | admit(agent|heavy|gpu)      |
  | NVML: GPU/VRAM/temp |---->|    GPU>=87C, D:<5GB, STOP  |---->|   GRANT / DENY / WAIT       |
  | GetLastInputInfo    |---->| 2. BATTERY? sem tomada     |     | gpu lease (1 por vez)       |
  | Ollama /api/ps      |---->| 3. CONTENTION? GPU alheia  |     | unload modelos (keep_alive=0)|
@@ -120,7 +120,7 @@
  +---------------------+     | 4. BACKGROUND? ocioso>=10m |     | eventos resource.*          |
                              | 5. FOREGROUND (padrao)     |     +-----------------------------+
                              | + limiares de pressao      |
-                             | + histerese (2 leituras)   |
+                             | + histerese (10 s cont.)   |
                              +----------------------------+
   Limites por modo:    FG: 2 agentes, T0/T1, 1 pesado | BG: 4, ate T2, 2 pesados
                        BAT: 1, sem GPU, 0 pesados      | CONT: 2, sem GPU | CRIT: 0 novos

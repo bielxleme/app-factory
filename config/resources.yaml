@@ -1,0 +1,33 @@
+{
+  "sampling": {"interval_s": 1, "cpu_window_s": 60, "gpu_window_s": 30},
+  "idle_threshold_min": 10,
+  "reserves": {
+    "ram_gb": {"FOREGROUND": 3.0, "BACKGROUND": 2.0, "BATTERY": 3.0, "CONTENTION": 3.0},
+    "vram_mib": {"FOREGROUND": 768, "BACKGROUND": 384}
+  },
+  "limits": {
+    "FOREGROUND": {"agents": 2, "heavy": 1, "gpu_tiers": ["T0", "T1"], "keep_alive": "2m", "cpu_offload_gb": 0},
+    "BACKGROUND": {"agents": 4, "heavy": 2, "gpu_tiers": ["T0", "T1", "T2"], "keep_alive": "10m", "cpu_offload_gb": 4},
+    "BATTERY": {"agents": 1, "heavy": 0, "gpu_tiers": [], "keep_alive": "0", "cpu_offload_gb": 0, "pause_below_pct": 30},
+    "CONTENTION": {"agents": 2, "heavy": 1, "gpu_tiers": [], "keep_alive": "0"},
+    "CRITICAL": {"agents": 0, "heavy": 0, "gpu_tiers": []}
+  },
+  "gpu": {
+    "max_factory_models_loaded": 1,
+    "max_concurrent_local_calls": 1,
+    "allow_t0_colocation": true,
+    "measurement_margin_mib": 512,
+    "context_overhead_mib": 300,
+    "observation_window_s": 2,
+    "contention_processes": [],
+    "benign_processes": ["EpicGamesLauncher.exe", "steam.exe", "nvcontainer.exe", "explorer.exe", "chrome.exe"]
+  },
+  "thresholds": {
+    "ram_gb": {"no_new_agents": 3.0, "shed_heavy": 2.0, "critical": 1.5, "critical_exit": 2.5},
+    "cpu_pct": {"one_admission_per_min": 70, "no_new_admission": 85},
+    "gpu": {"contention_util_pct": 20, "contention_vram_mib": 1536, "contention_vram_growth_mib_30s": 512, "temp_throttle_c": 80, "temp_critical_c": 87},
+    "docker_vm_admission_ram_gb": 3.0,
+    "disk_gb": {"work_drive": "D", "build_min": 20, "critical": 5, "system_drive_warn": 15}
+  },
+  "max_processes": 8
+}

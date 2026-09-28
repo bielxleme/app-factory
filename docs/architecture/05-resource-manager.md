@@ -2,22 +2,24 @@
 
 **Revisão 1.1 (2026-09-26):** medição de GPU corrigida para Windows/WDDM (§1.1, N4), limiares de CPU e BATTERY unificados (§3–§4, N7), modelos de terceiros no Ollama (§5, N5). Decisões D-0032, D-0033, D-0038. **Este documento é a fonte canônica dos limiares**; os demais apenas o referenciam.
 
+**Revisão 1.2 (2026-09-27):** fontes das sondas (§1) alinhadas a D-0058 e D-0068 — somente biblioteca padrão (`ctypes`), NVML via `nvml.dll` no caminho principal, `nvidia-smi` só como fallback isolado em `resources/probes/nvidia.py`; saída do modo CRITICAL corrigida (§2) — exige o STOP da fábrica liberado; apagar o arquivo `.appfactory/STOP` nunca libera (D-0028, D-0062); histerese de 10 s contínuos por tempo ativo (§2; D-0069, D-0070); ociosidade instantânea (D-0071); `sampling.interval_s: 1` e reserva de RAM de CONTENTION 3,0 GB no exemplo de §9 (D-0070, D-0072).
+
 Diagrama: `13-diagramas.md` §4. Valores de referência do hardware medido: RAM 23,71 GB (5,2 GB livres no uso normal), VRAM 6141 MiB, 12 threads, C: 32,9 GB livres, D: 177,8 GB livres.
 
 ## 1. Sondas e frequência
 
 | Métrica | Fonte | Frequência | Janela de decisão |
 | --- | --- | --- | --- |
-| CPU % total | psutil (`cpu_percent`) | 5 s | média de 60 s |
-| RAM disponível | psutil (`virtual_memory().available`) | 5 s | mínimo de 30 s |
-| Commit livre | WMI `FreeVirtualMemory` | 30 s | valor atual |
-| GPU % total, VRAM usada/livre **total**, temperatura, potência | NVML (nvidia-ml-py); fallback `nvidia-smi --query-gpu` | 5 s (1 s nas janelas de observação, §1.1) | média de 30 s |
+| CPU % total | Win32 `GetSystemTimes` (`ctypes`) | 5 s | média de 60 s |
+| RAM disponível | Win32 `GlobalMemoryStatusEx` (`ctypes`) | 5 s | mínimo de 30 s |
+| Commit livre | Win32 `GlobalMemoryStatusEx` (`ullAvailPageFile`, `ctypes`; D-0068) | 30 s | valor atual |
+| GPU % total, VRAM usada/livre **total**, temperatura, potência | NVML via `nvml.dll` + `ctypes` (caminho principal); fallback `nvidia-smi --query-gpu` **somente** em `resources/probes/nvidia.py` (D-0058) | 5 s (1 s nas janelas de observação, §1.1) | média de 30 s |
 | Processos na GPU (nomes/PIDs; **sem VRAM por processo**) | NVML (processos de computação/gráficos) | 15 s | valor atual |
 | Tela cheia / modo apresentação / D3D exclusivo | Win32 `SHQueryUserNotificationState` | 5 s | valor atual |
 | Modelos carregados | Ollama `/api/ps` | 15 s e após load/unload | valor atual |
 | Ociosidade do usuário | Win32 `GetLastInputInfo` | 5 s | valor atual |
-| Energia / bateria | psutil `sensors_battery()` | 30 s | valor atual |
-| Disco livre (C:, D:) | psutil `disk_usage` | 60 s | valor atual |
+| Energia / bateria | Win32 `GetSystemPowerStatus` (`ctypes`) | 30 s | valor atual |
+| Disco livre (C:, D:) | Win32 `GetDiskFreeSpaceExW` (`ctypes`) | 60 s | valor atual |
 | Temperatura da CPU | **Indisponível** (WMI exige administrador; medido: vazio) | — | — |
 
 Falha de uma sonda → assume o **pior caso** daquele recurso e registra `resource.probe_failed`.
@@ -56,13 +58,13 @@ Falha de uma sonda → assume o **pior caso** daquele recurso e registra `resour
 
 | Ordem | Modo | Condição de entrada | Condição de saída (histerese) |
 | --- | --- | --- | --- |
-| 1 | **CRITICAL** | RAM disponível < 1,5 GB **ou** temp. GPU ≥ 87 °C **ou** disco de trabalho (D:) < 5 GB **ou** kill switch `.appfactory/STOP` | RAM ≥ 2,5 GB **e** GPU ≤ 80 °C **e** disco ≥ 10 GB por 60 s (e kill switch removido) |
+| 1 | **CRITICAL** | RAM disponível < 1,5 GB **ou** temp. GPU ≥ 87 °C **ou** disco de trabalho (D:) < 5 GB **ou** kill switch `.appfactory/STOP` | RAM ≥ 2,5 GB **e** GPU ≤ 80 °C **e** disco ≥ 10 GB por 60 s **e** STOP da fábrica liberado (`factory_stop` inativo, só por `af resume-factory` — D-0028, D-0062); apagar `.appfactory/STOP` **não** faz sair de CRITICAL |
 | 2 | **BATTERY** | Sem energia da tomada | Tomada por 60 s |
 | 3 | **CONTENTION** | Qualquer critério de §1.1: uso alheio > 20% (só em amostras sem inferência da fábrica) **ou** `vram_terceiros` > 1536 MiB **ou** crescimento rápido de `vram_terceiros` **ou** tela cheia/D3D exclusivo **ou** processo em `contention_processes` | Condição ausente por 120 s |
 | 4 | **BACKGROUND** | Usuário ocioso ≥ 10 min | Qualquer entrada do usuário → FOREGROUND imediato |
 | 5 | **FOREGROUND** | Padrão (usuário ativo) | — |
 
-Mudança de modo só vale após **2 avaliações consecutivas** (10 s), exceto: entrada em CRITICAL e volta do usuário (imediatas).
+Mudança de modo só vale após a condição do novo modo ficar satisfeita de forma **contínua por 10 s** de tempo ativo (regra fixa, não configurável; D-0069, D-0070), exceto: entrada em CRITICAL e volta do usuário (imediatas). A ociosidade é leitura instantânea (§1; D-0071).
 
 ## 3. Política por modo
 
@@ -132,9 +134,9 @@ O Resource Manager **não conhece preços**. Custo é política do Provider Rout
 Exemplo **ilustrativo** (conteúdo normativo, sintaxe não): o arquivo real é escrito no subconjunto JSON do YAML 1.2, sem comentários, e é protegido (`config/**`) — D-0049, D-0052.
 
 ```yaml
-sampling: { interval_s: 5, cpu_window_s: 60, gpu_window_s: 30, mode_confirmations: 2 }
+sampling: { interval_s: 1, cpu_window_s: 60, gpu_window_s: 30 }   # histerese de 10 s fixa, não configurável (D-0069, D-0070)
 idle_threshold_min: 10
-reserves: { ram_gb: { FOREGROUND: 3.0, BACKGROUND: 2.0, BATTERY: 3.0 }, vram_mib: { FOREGROUND: 768, BACKGROUND: 384 } }
+reserves: { ram_gb: { FOREGROUND: 3.0, BACKGROUND: 2.0, BATTERY: 3.0, CONTENTION: 3.0 }, vram_mib: { FOREGROUND: 768, BACKGROUND: 384 } }
 limits:
   FOREGROUND: { agents: 2, heavy: 1, gpu_tiers: [T0, T1], keep_alive: 2m, cpu_offload_gb: 0 }
   BACKGROUND: { agents: 4, heavy: 2, gpu_tiers: [T0, T1, T2], keep_alive: 10m, cpu_offload_gb: 4 }
